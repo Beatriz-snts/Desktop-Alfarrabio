@@ -1,11 +1,14 @@
 import { app, BrowserWindow, ipcMain, nativeTheme } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
-
+import UsuarioController from './Main_back/Controllers/UsuarioController.js';
+import ServicoController from './Main_back/Controllers/ServicoController.js';
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
   app.quit();
 }
+const controlerUsuario = new UsuarioController();
+const controlerServico = new ServicoController();
 
 const createWindow = () => {
   // Create the browser window.
@@ -49,8 +52,6 @@ app.whenReady().then(() => {
     }
   });
 
-});
-
 ipcMain.handle('dark-mode:toggle', () => {
   if (nativeTheme.shouldUseDarkColors) {
     nativeTheme.themeSource = 'light'
@@ -59,6 +60,21 @@ ipcMain.handle('dark-mode:toggle', () => {
   }
   return nativeTheme.shouldUseDarkColors
 })
+
+
+ipcMain.handle("usuarios:listar", async () => {
+  return await controlerUsuario.listar();
+})
+
+ipcMain.handle("usuarios:cadastrar", async (event, usuario) => {
+  return await controlerUsuario.cadastrar(usuario);
+})
+
+
+
+});
+
+
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
