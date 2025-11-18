@@ -3,7 +3,7 @@ import UsuarioForm from "../Views/Usuario/form/UsuarioForm.js"
 class Rotas {
     constructor(){
         this.rotas={
-            "/usuario_listar": () =>{
+            "/usuario_listar": async () =>{
                 return new UsuarioListar().renderizarLista();
             },
             "/usuario_form": () =>{
@@ -11,10 +11,10 @@ class Rotas {
             }
         }
     }
-     getPage(rota){
+    async getPage(rota){
         // /usuario_listar
             // UsuarioListar()
-        return this.rotas[rota]();
+        return await this.rotas[rota]();
     }
 }
 export default Rotas;

@@ -4,7 +4,9 @@ class UsuarioController{
         this.usuarioModel = new Usuarios();
     }
     async listar(){
-        return this.usuarioModel.listar();
+        const dados = await this.usuarioModel.listar();
+        console.log('dados no controller', dados);
+        return dados
     }
     async cadastrar(usuario){
         this.usuarioModel.adicionar(usuario);
