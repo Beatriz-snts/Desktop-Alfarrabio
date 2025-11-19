@@ -9,6 +9,9 @@ class UsuarioController{
         return dados
     }
     async cadastrar(usuario){
+        if(!usuario.nome || !usuario.idade){
+            return false;
+        }
         this.usuarioModel.adicionar(usuario);
         return true;
     }

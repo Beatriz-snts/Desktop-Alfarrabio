@@ -16,7 +16,7 @@ const createWindow = () => {
     width: 1200,
     height: 600,
     transparent: false,
-    alwaysOnTop: true,
+    alwaysOnTop: false,
     resizable: true,
     fullscreen: false,
     frame: true,
@@ -67,7 +67,8 @@ ipcMain.handle("usuarios:listar", async () => {
 })
 
 ipcMain.handle("usuarios:cadastrar", async (event, usuario) => {
-  return await controlerUsuario.cadastrar(usuario);
+   const resultado = await controlerUsuario.cadastrar(usuario);
+   return resultado;
 })
 
 
