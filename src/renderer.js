@@ -20,4 +20,4 @@ window.addEventListener('hashchange', async () => {
   await navegarPara(rota);
 });
 //1º envia a url = hash
-navegarPara('/usuario_listar');
+navegarPara('/usuario_menu');

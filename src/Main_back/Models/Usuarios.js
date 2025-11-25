@@ -1,8 +1,9 @@
 class Usuarios {
   constructor() {
     this.Usuarios = [
-      {"nome": "jose", "idade": 26},
-      {"nome": "maria", "idade": 35},
+      {"id": 1,"nome": "jose", "idade": 26},
+      {"id": 2,"nome": "maria", "idade": 35},
+      {"id": 3,"nome": "xssss", "idade": 15},
     ];
   }
   adicionar(usuario) {
