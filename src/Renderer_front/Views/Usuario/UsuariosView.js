@@ -13,7 +13,7 @@ class UsuariosView{
 
 
     renderizarLista(Usuarios){
-        let container = `<div style="overflow-x:auto;">
+        let container = `<div style="overflow-x:auto;" id="container">
                             <table>
                             <tr>
                               <th>Nome</th><th>Idade</th><th>ações</th>
