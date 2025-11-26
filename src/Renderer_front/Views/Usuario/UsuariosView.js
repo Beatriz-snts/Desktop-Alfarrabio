@@ -20,8 +20,8 @@ class UsuariosView{
                             </tr>`;
         Usuarios.forEach(usuario => { // data = atributto
             container += `<tr><td> ${usuario.nome} </td><td> ${usuario.idade} </td><td> 
-            <button class="editar-user" data-id="${usuario.id}">Editar</button>
-            <button class="excluir-user" data-id="${usuario.id}">Excluir</button> </td><tr>`
+            <button class="editar-user" data-id="${usuario.uuid}">Editar</button>
+            <button class="excluir-user" data-id="${usuario.uuid}">Excluir</button> </td><tr>`
         });
         container += `</table></div>
         <div id="myModal" class="modal">

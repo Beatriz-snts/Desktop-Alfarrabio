@@ -3,20 +3,20 @@ class MensagemDeAlerta{
     constructor(){
         this.alerta = Swal
     }
-    sucesso(){
+    sucesso(mensagem="Cadastrado com sucesso!"){
         this.alerta.fire({
             position: "top-end",
             icon: "success",
-            title: "Cadastrado com sucesso!",
+            title: mensagem,
             showConfirmButton: false,
             timer: 1500
         });
     }
-    erro(){
+    erro(mensagem="Preencha todos os campos!"){
         this.alerta.fire({
             position: "top-end",
             icon: "error",
-            title: "Preencha todos os campos!",
+            title: mensagem,
             showConfirmButton: false,
             timer: 1500
         });
