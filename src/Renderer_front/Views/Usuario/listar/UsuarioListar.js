@@ -4,6 +4,7 @@ class UsuarioListar{
     constructor(){
         this.view = new UsuariosView();
         this.mensagem = new MensagemDeAlerta();
+
         
     }
    async renderizarLista(){
@@ -15,8 +16,12 @@ class UsuarioListar{
        return this.view.renderizarLista(dados)
     }
     adicionarEventos(){
-        this.app = document.getElementById("container");
-        this.app.addEventListener("click", async (e)=>{
+        const btnfechar = document.getElementById("fechar");
+        btnfechar.addEventListener("click",()=>{
+            this.view.fecharModal();
+        })
+        const container = document.getElementById("container");
+        container.addEventListener("click", async (e)=>{
             const idUsuario = e.target.getAttribute("data-id");
             if(e.target.classList.contains("editar-user")){
                 console.log("editar usuario id:", idUsuario);
