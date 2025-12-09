@@ -16,10 +16,10 @@ class UsuariosView{
         let container = `<div style="overflow-x:auto;" id="container">
                             <table>
                             <tr>
-                              <th>Nome</th><th>Idade</th><th>ações</th>
+                              <th>Nome</th><th>E-mail</th><th>ações</th>
                             </tr>`;
         Usuarios.forEach(usuario => { // data = atributto
-            container += `<tr><td> ${usuario.nome} </td><td> ${usuario.idade} </td><td> 
+            container += `<tr><td> ${usuario.nome_usuario} </td><td> ${usuario.email_usuario} </td><td> 
             <button class="editar-user" data-id="${usuario.uuid}">Editar</button>
             <button class="excluir-user" data-id="${usuario.uuid}">Excluir</button> </td><tr>`
         });

@@ -12,8 +12,10 @@ export function initDatabase() {
     CREATE TABLE IF NOT EXISTS usuarios (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       uuid TEXT, 
-      nome TEXT NOT NULL,
-      idade INTEGER,
+      nome_usuario TEXT NOT NULL,
+      email_usuario TEXT NOT NULL,
+      tipo_usuario TEXT NOT NULL,
+      status_usuario TEXT NOT NULL,
       sync_status INTEGER DEFAULT 0, -- 0 = Pendente, 1 = Sincronizado
       criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
       atualizado_em DATETIME,

@@ -3,12 +3,13 @@ import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import UsuarioController from './Main_back/Controllers/UsuarioController.js';
 import ServicoController from './Main_back/Controllers/ServicoController.js';
+import APIFetch from './Main_back/Services/APIFetch.js';
 import { initDatabase } from './Main_back/Database/db.js';
 if (started) {
   app.quit();
 }
 const controlerUsuario = new UsuarioController();
-const controlerServico = new ServicoController();
+const apiremoto = new APIFetch();
 
 const createWindow = () => {
   // Create the browser window.
@@ -77,6 +78,14 @@ ipcMain.handle("usuarios:editar", async (event, usuario) => {
    const resultado = await controlerUsuario.atualizarUsuario(usuario);
    return resultado;
 })
+
+
+async function buscarUsuariosRemoto(){
+  const resultado = await apiremoto.fetch("usuarios");
+  await controlerUsuario.sincronizarAPIlocal(resultado.data.data)
+}
+buscarUsuariosRemoto()
+
 
 });
 
