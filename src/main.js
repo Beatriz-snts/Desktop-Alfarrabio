@@ -1,21 +1,36 @@
 import { app, BrowserWindow, ipcMain, nativeTheme } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
+
+// Controllers
+import AuthController from './Main_back/Controllers/AuthController.js';
 import UsuarioController from './Main_back/Controllers/UsuarioController.js';
-import ServicoController from './Main_back/Controllers/ServicoController.js';
-import APIFetch from './Main_back/Services/APIFetch.js';
+import ItemController from './Main_back/Controllers/ItemController.js';
+import CategoriaController from './Main_back/Controllers/CategoriaController.js';
+import GeneroController from './Main_back/Controllers/GeneroController.js';
+import VendaController from './Main_back/Controllers/VendaController.js';
 import { initDatabase } from './Main_back/Database/db.js';
+
 if (started) {
   app.quit();
 }
-const controlerUsuario = new UsuarioController();
-const apiremoto = new APIFetch();
+
+// Instâncias dos controllers
+const authController = new AuthController();
+const usuarioController = new UsuarioController();
+const itemController = new ItemController();
+const categoriaController = new CategoriaController();
+const generoController = new GeneroController();
+const vendaController = new VendaController();
+
+let mainWindow;
 
 const createWindow = () => {
-  // Create the browser window.
-  const mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 600,
+  mainWindow = new BrowserWindow({
+    width: 1400,
+    height: 900,
+    minWidth: 1024,
+    minHeight: 768,
     transparent: false,
     alwaysOnTop: false,
     resizable: true,
@@ -28,76 +43,227 @@ const createWindow = () => {
     },
   });
 
-  // and load the index.html of the app.
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
   } else {
     mainWindow.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
   }
 
-  // Open the DevTools.
-  //mainWindow.webContents.openDevTools();
+  // DevTools em desenvolvimento
+  // mainWindow.webContents.openDevTools();
 };
 
 app.whenReady().then(() => {
   createWindow();
   initDatabase();
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
     }
   });
 
-ipcMain.handle('dark-mode:toggle', () => {
-  if (nativeTheme.shouldUseDarkColors) {
-    nativeTheme.themeSource = 'light'
-  } else {
-    nativeTheme.themeSource = 'dark'
-  }
-  return nativeTheme.shouldUseDarkColors
-})
+  // =========================================
+  // IPC - Tema
+  // =========================================
+  ipcMain.handle('dark-mode:toggle', () => {
+    if (nativeTheme.shouldUseDarkColors) {
+      nativeTheme.themeSource = 'light';
+    } else {
+      nativeTheme.themeSource = 'dark';
+    }
+    return nativeTheme.shouldUseDarkColors;
+  });
 
-ipcMain.handle("usuarios:buscarPorId", async (event, uuid) => {
-  return await controlerUsuario.buscarUsuarioPorId(uuid);
-})
+  ipcMain.handle('dark-mode:get', () => {
+    return nativeTheme.shouldUseDarkColors;
+  });
 
-ipcMain.handle("usuarios:removerusuario", async (event, uuid) => {
-  return await controlerUsuario.removerUsuario(uuid);
-})
+  // =========================================
+  // IPC - Autenticação
+  // =========================================
+  ipcMain.handle('auth:login', async (event, email, senha) => {
+    return await authController.login(email, senha);
+  });
 
-ipcMain.handle("usuarios:listar", async () => {
-  return await controlerUsuario.listar();
-})
+  ipcMain.handle('auth:logout', () => {
+    return authController.logout();
+  });
 
-ipcMain.handle("usuarios:cadastrar", async (event, usuario) => {
-   const resultado = await controlerUsuario.cadastrar(usuario);
-   return resultado;
-})
+  ipcMain.handle('auth:verificar', () => {
+    return authController.verificarSessao();
+  });
 
-ipcMain.handle("usuarios:editar", async (event, usuario) => {
-   const resultado = await controlerUsuario.atualizarUsuario(usuario);
-   return resultado;
-})
+  ipcMain.handle('auth:isAdmin', () => {
+    return authController.isAdmin();
+  });
 
+  // =========================================
+  // IPC - Usuários
+  // =========================================
+  ipcMain.handle('usuarios:listar', () => {
+    return usuarioController.listar();
+  });
 
-async function buscarUsuariosRemoto(){
-  const resultado = await apiremoto.fetch("usuarios");
-  await controlerUsuario.sincronizarAPIlocal(resultado.data.data)
-}
-buscarUsuariosRemoto()
+  ipcMain.handle('usuarios:buscarPorId', (event, uuid) => {
+    return usuarioController.buscarPorId(uuid);
+  });
 
+  ipcMain.handle('usuarios:cadastrar', async (event, usuario) => {
+    return await usuarioController.cadastrar(usuario);
+  });
 
+  ipcMain.handle('usuarios:editar', async (event, usuario) => {
+    return await usuarioController.atualizar(usuario);
+  });
+
+  ipcMain.handle('usuarios:remover', (event, uuid) => {
+    return usuarioController.remover(uuid);
+  });
+
+  // =========================================
+  // IPC - Itens
+  // =========================================
+  ipcMain.handle('itens:listar', () => {
+    return itemController.listar();
+  });
+
+  ipcMain.handle('itens:listarDisponiveis', () => {
+    return itemController.listarDisponiveis();
+  });
+
+  ipcMain.handle('itens:buscarPorId', (event, uuid) => {
+    return itemController.buscarPorId(uuid);
+  });
+
+  ipcMain.handle('itens:buscar', (event, termo) => {
+    return itemController.buscar(termo);
+  });
+
+  ipcMain.handle('itens:filtrarPorCategoria', (event, categoriaId) => {
+    return itemController.filtrarPorCategoria(categoriaId);
+  });
+
+  ipcMain.handle('itens:filtrarPorGenero', (event, generoId) => {
+    return itemController.filtrarPorGenero(generoId);
+  });
+
+  ipcMain.handle('itens:cadastrar', (event, item) => {
+    return itemController.cadastrar(item);
+  });
+
+  ipcMain.handle('itens:atualizar', (event, item) => {
+    return itemController.atualizar(item);
+  });
+
+  ipcMain.handle('itens:remover', (event, uuid) => {
+    return itemController.remover(uuid);
+  });
+
+  ipcMain.handle('itens:estoqueBaixo', () => {
+    return itemController.buscarEstoqueBaixo();
+  });
+
+  // =========================================
+  // IPC - Categorias
+  // =========================================
+  ipcMain.handle('categorias:listar', () => {
+    return categoriaController.listar();
+  });
+
+  ipcMain.handle('categorias:buscarPorId', (event, id) => {
+    return categoriaController.buscarPorId(id);
+  });
+
+  ipcMain.handle('categorias:cadastrar', (event, categoria) => {
+    return categoriaController.cadastrar(categoria);
+  });
+
+  ipcMain.handle('categorias:atualizar', (event, categoria) => {
+    return categoriaController.atualizar(categoria);
+  });
+
+  ipcMain.handle('categorias:remover', (event, id) => {
+    return categoriaController.remover(id);
+  });
+
+  // =========================================
+  // IPC - Gêneros
+  // =========================================
+  ipcMain.handle('generos:listar', () => {
+    return generoController.listar();
+  });
+
+  ipcMain.handle('generos:listarPorCategoria', (event, categoriaId) => {
+    return generoController.listarPorCategoria(categoriaId);
+  });
+
+  ipcMain.handle('generos:cadastrar', (event, genero) => {
+    return generoController.cadastrar(genero);
+  });
+
+  ipcMain.handle('generos:atualizar', (event, genero) => {
+    return generoController.atualizar(genero);
+  });
+
+  ipcMain.handle('generos:remover', (event, id) => {
+    return generoController.remover(id);
+  });
+
+  // =========================================
+  // IPC - Vendas
+  // =========================================
+  ipcMain.handle('vendas:criar', (event, usuarioId) => {
+    return vendaController.criar(usuarioId);
+  });
+
+  ipcMain.handle('vendas:adicionarItem', (event, vendaId, itemUuid, quantidade) => {
+    return vendaController.adicionarItem(vendaId, itemUuid, quantidade);
+  });
+
+  ipcMain.handle('vendas:removerItem', (event, itemVendaId) => {
+    return vendaController.removerItem(itemVendaId);
+  });
+
+  ipcMain.handle('vendas:atualizarQuantidade', (event, itemVendaId, quantidade, vendaId) => {
+    return vendaController.atualizarQuantidadeItem(itemVendaId, quantidade, vendaId);
+  });
+
+  ipcMain.handle('vendas:listarItens', (event, vendaId) => {
+    return vendaController.listarItens(vendaId);
+  });
+
+  ipcMain.handle('vendas:finalizar', (event, vendaUuid, formaPagamento, desconto) => {
+    return vendaController.finalizar(vendaUuid, formaPagamento, desconto);
+  });
+
+  ipcMain.handle('vendas:cancelar', (event, vendaUuid) => {
+    return vendaController.cancelar(vendaUuid);
+  });
+
+  ipcMain.handle('vendas:listar', () => {
+    return vendaController.listar();
+  });
+
+  ipcMain.handle('vendas:listarPorPeriodo', (event, dataInicio, dataFim) => {
+    return vendaController.listarPorPeriodo(dataInicio, dataFim);
+  });
+
+  ipcMain.handle('vendas:buscarPorId', (event, uuid) => {
+    return vendaController.buscarPorId(uuid);
+  });
+
+  ipcMain.handle('vendas:estatisticasHoje', () => {
+    return vendaController.estatisticasHoje();
+  });
+
+  ipcMain.handle('vendas:maisVendidos', (event, limite) => {
+    return vendaController.maisVendidos(limite);
+  });
 });
 
-
-// Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
 });
-
-// In this file you can include the rest of your app's specific main process
-// code. You can also put them in separate files and import them here.

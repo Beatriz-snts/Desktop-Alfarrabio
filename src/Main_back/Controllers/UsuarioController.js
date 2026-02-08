@@ -1,64 +1,91 @@
 import Usuarios from '../Models/Usuarios.js';
-class UsuarioController{
-    constructor(){
+
+class UsuarioController {
+    constructor() {
         this.usuarioModel = new Usuarios();
     }
-    async listar(){
-        const dados = await this.usuarioModel.listar();
-        console.log('dados no controller', dados);
-        return dados
+
+    listar() {
+        try {
+            const dados = this.usuarioModel.listar();
+            return { success: true, data: dados };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
     }
-    async sincronizarAPIlocal(usuarios){
-        console.log("array:",usuarios)
-        usuarios.forEach(usuario => {
-            if(this.usuarioModel.buscarPorEmail(usuario.email_usuario)){
-                if(this.usuarioModel.adicionar(usuario)){
-                    console.log(`usuario: ${usuario.email_usuario} inserido com sucesso`)
-                }
+
+    buscarPorId(uuid) {
+        try {
+            if (!uuid) {
+                return { success: false, error: 'UUID é obrigatório' };
             }
-        });
+            const data = this.usuarioModel.buscarPorId(uuid);
+            return { success: !!data, data };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
     }
 
-    async cadastrar(usuario){
-        if(!usuario.nome || !usuario.idade){
-            return false;
-        }
-        this.usuarioModel.adicionar(usuario);
-        return true;
-    }
-    async atualizarUsuario(usuario){
-        if(!usuario.nome || !usuario.idade){
-            return false;
-        }
-        console.log('chegou no controller',usuario)
-        const usuarioExistente = await this.usuarioModel.buscarPorId(usuario.uuid);
-        console.log('usuario retornado da model',usuarioExistente)
-        if(!usuarioExistente){
-            return false;
-        }
-        const resultado = await this.usuarioModel.atualizar(usuario);
-        return resultado;
-    }
+    async cadastrar(usuario) {
+        try {
+            if (!usuario.nome || !usuario.email || !usuario.senha) {
+                return { success: false, error: 'Nome, email e senha são obrigatórios' };
+            }
+            if (usuario.senha.length < 6) {
+                return { success: false, error: 'Senha deve ter no mínimo 6 caracteres' };
+            }
 
-    async buscarUsuarioPorId(id){
-        console.log(id)
-        if(!id){
-            return false
+            // Verifica se email já existe
+            const existente = this.usuarioModel.buscarPorEmail(usuario.email);
+            if (existente) {
+                return { success: false, error: 'Email já cadastrado' };
+            }
+
+            const resultado = await this.usuarioModel.adicionar(usuario);
+            return { success: true, ...resultado };
+        } catch (error) {
+            return { success: false, error: error.message };
         }
-       return this.usuarioModel.buscarPorId(id)
     }
 
+    async atualizar(usuario) {
+        try {
+            if (!usuario.uuid) {
+                return { success: false, error: 'UUID é obrigatório' };
+            }
+            if (!usuario.nome || !usuario.email) {
+                return { success: false, error: 'Nome e email são obrigatórios' };
+            }
 
-    async removerUsuario(uuid){
-        const usuarioExistente = await this.usuarioModel.buscarPorId(uuid);
-        if(!usuarioExistente){
-            return false
+            const usuarioExistente = this.usuarioModel.buscarPorId(usuario.uuid);
+            if (!usuarioExistente) {
+                return { success: false, error: 'Usuário não encontrado' };
+            }
+
+            const resultado = await this.usuarioModel.atualizar(usuario);
+            return { success: resultado };
+        } catch (error) {
+            return { success: false, error: error.message };
         }
-        console.log("usuario a ser removido",usuarioExistente)
-        debugger
-        const resultado = await this.usuarioModel.remover(usuarioExistente)
-        return resultado
     }
 
+    remover(uuid) {
+        try {
+            if (!uuid) {
+                return { success: false, error: 'UUID é obrigatório' };
+            }
+
+            const usuarioExistente = this.usuarioModel.buscarPorId(uuid);
+            if (!usuarioExistente) {
+                return { success: false, error: 'Usuário não encontrado' };
+            }
+
+            const resultado = this.usuarioModel.remover(uuid);
+            return { success: resultado };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    }
 }
+
 export default UsuarioController;
