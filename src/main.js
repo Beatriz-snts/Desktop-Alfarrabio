@@ -8,6 +8,7 @@ import UsuarioController from './Main_back/Controllers/UsuarioController.js';
 import ItemController from './Main_back/Controllers/ItemController.js';
 import CategoriaController from './Main_back/Controllers/CategoriaController.js';
 import GeneroController from './Main_back/Controllers/GeneroController.js';
+import AutorController from './Main_back/Controllers/AutorController.js';
 import VendaController from './Main_back/Controllers/VendaController.js';
 import { initDatabase } from './Main_back/Database/db.js';
 
@@ -21,6 +22,7 @@ const usuarioController = new UsuarioController();
 const itemController = new ItemController();
 const categoriaController = new CategoriaController();
 const generoController = new GeneroController();
+const autorController = new AutorController();
 const vendaController = new VendaController();
 
 let mainWindow;
@@ -211,6 +213,17 @@ app.whenReady().then(() => {
   });
 
   // =========================================
+  // IPC - Autores
+  // =========================================
+  ipcMain.handle('autores:listar', () => {
+    return autorController.listar();
+  });
+
+  ipcMain.handle('autores:cadastrar', (event, autor) => {
+    return autorController.cadastrar(autor);
+  });
+
+  // =========================================
   // IPC - Vendas
   // =========================================
   ipcMain.handle('vendas:criar', (event, usuarioId) => {
@@ -260,6 +273,67 @@ app.whenReady().then(() => {
   ipcMain.handle('vendas:maisVendidos', (event, limite) => {
     return vendaController.maisVendidos(limite);
   });
+
+  // =========================================
+  // IPC - Sincronização
+  // =========================================
+  ipcMain.handle('sync:testar', async () => {
+    const SyncService = (await import('./Main_back/Services/SyncService.js')).default;
+    return SyncService.testarConexao();
+  });
+
+  ipcMain.handle('sync:importarCategorias', async () => {
+    const SyncService = (await import('./Main_back/Services/SyncService.js')).default;
+    return SyncService.importarCategorias();
+  });
+
+  ipcMain.handle('sync:importarGeneros', async () => {
+    const SyncService = (await import('./Main_back/Services/SyncService.js')).default;
+    return SyncService.importarGeneros();
+  });
+
+  ipcMain.handle('sync:importarAutores', async () => {
+    const SyncService = (await import('./Main_back/Services/SyncService.js')).default;
+    return SyncService.importarAutores();
+  });
+
+  ipcMain.handle('sync:importarItens', async () => {
+    const SyncService = (await import('./Main_back/Services/SyncService.js')).default;
+    return SyncService.importarItens();
+  });
+
+  ipcMain.handle('sync:exportarVendas', async () => {
+    const SyncService = (await import('./Main_back/Services/SyncService.js')).default;
+    return SyncService.exportarVendas();
+  });
+
+  ipcMain.handle('sync:sincronizarTudo', async () => {
+    const SyncService = (await import('./Main_back/Services/SyncService.js')).default;
+    return SyncService.sincronizarTudo();
+  });
+
+  ipcMain.handle('sync:status', async () => {
+    const SyncService = (await import('./Main_back/Services/SyncService.js')).default;
+    return SyncService.getStatusSync();
+  });
+
+  ipcMain.handle('sync:estatisticas', () => {
+    const db = require('./Main_back/Database/db.js').default;
+
+    const categorias = db.prepare('SELECT COUNT(*) as count FROM categorias WHERE excluido_em IS NULL').get();
+    const generos = db.prepare('SELECT COUNT(*) as count FROM generos WHERE excluido_em IS NULL').get();
+    const autores = db.prepare('SELECT COUNT(*) as count FROM autores WHERE excluido_em IS NULL').get();
+    const itens = db.prepare('SELECT COUNT(*) as count FROM itens WHERE excluido_em IS NULL').get();
+    const vendasPendentes = db.prepare("SELECT COUNT(*) as count FROM vendas WHERE sync_status = 0 AND status = 'concluida'").get();
+
+    return {
+      categorias: categorias?.count || 0,
+      generos: generos?.count || 0,
+      autores: autores?.count || 0,
+      itens: itens?.count || 0,
+      vendasPendentes: vendasPendentes?.count || 0
+    };
+  });
 });
 
 app.on('window-all-closed', () => {
@@ -267,3 +341,4 @@ app.on('window-all-closed', () => {
     app.quit();
   }
 });
+

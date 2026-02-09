@@ -1,20 +1,87 @@
 <!doctype html>
-<html>
-  <head>
-    <meta charset="UTF-8" />
-    <title>Desktop kipedreiro</title>
-  </head>
-  <body>
-   <div id="app"></div>
-   <nav>
-      <ul>
-          <li><a href="#usuario_menu">Usuários</a></li>
-          <li><a href="#usuario_listar">Lista usuarios</a></li>
-      </ul>
-      <button id="toggle-dark-mode">Toggle Dark Mode</button>
-      <p id="theme-source"></p>
-      <p>Conexão: <strong id='status'></strong></p>
-   </nav>
-    <script type="module" src="/src/renderer.js"></script>
-  </body>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sebo Alfarrabio - PDV</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+  <!-- Container Principal -->
+  <div id="app-container">
+    <!-- Tela de Login (mostrada inicialmente) -->
+    <div id="login-screen"></div>
+
+    <!-- Layout Principal (escondido até login) -->
+    <div id="main-layout" class="hidden">
+      <!-- Sidebar -->
+      <aside id="sidebar">
+        <div class="sidebar-header">
+          <div class="logo-container">
+            <div class="logo-placeholder">📚</div>
+            <h1 class="logo-text">Sebo Alfarrabio</h1>
+          </div>
+          <div class="user-info" id="user-info"></div>
+        </div>
+
+        <nav class="sidebar-nav">
+          <div class="nav-section">
+            <span class="nav-section-title">PRINCIPAL</span>
+            <a href="#dashboard" class="nav-item active"><span class="nav-icon">📊</span> Dashboard</a>
+            <a href="#pdv" class="nav-item"><span class="nav-icon">🛒</span> PDV - Caixa</a>
+          </div>
+
+          <div class="nav-section">
+            <span class="nav-section-title">GESTÃO DE PRODUTOS</span>
+            <a href="#itens" class="nav-item"><span class="nav-icon">📖</span> Itens / Livros</a>
+            <a href="#categorias" class="nav-item"><span class="nav-icon">🏷️</span> Categorias</a>
+            <a href="#generos" class="nav-item"><span class="nav-icon">📑</span> Gêneros</a>
+            <a href="#autores" class="nav-item"><span class="nav-icon">✍️</span> Autores</a>
+          </div>
+
+          <div class="nav-section">
+            <span class="nav-section-title">VENDAS & RELATÓRIOS</span>
+            <a href="#vendas" class="nav-item"><span class="nav-icon">💰</span> Vendas</a>
+            <a href="#relatorios" class="nav-item"><span class="nav-icon">📈</span> Relatórios</a>
+          </div>
+
+          <div class="nav-section admin-only">
+            <span class="nav-section-title">ADMINISTRAÇÃO</span>
+            <a href="#usuarios" class="nav-item"><span class="nav-icon">👥</span> Usuários</a>
+            <a href="#sync" class="nav-item"><span class="nav-icon">🔄</span> Sincronização</a>
+            <a href="#configuracoes" class="nav-item"><span class="nav-icon">⚙️</span> Configurações</a>
+          </div>
+        </nav>
+
+        <div class="sidebar-footer">
+          <button id="toggle-theme" class="theme-btn">🌙 Tema Escuro</button>
+          <button id="btn-logout" class="logout-btn">🚪 Sair</button>
+        </div>
+      </aside>
+
+      <!-- Área de Conteúdo -->
+      <main id="main-content">
+        <header id="header">
+          <div class="header-left">
+            <h2 id="page-title">Dashboard</h2>
+          </div>
+          <div class="header-right">
+            <span id="current-date"></span>
+            <span id="connection-status" class="status-online">● Online</span>
+          </div>
+        </header>
+
+        <div id="app"></div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Modal Container -->
+  <div id="modal-container" class="hidden"></div>
+
+  <script type="module" src="/src/renderer.js"></script>
+</body>
+
 </html>

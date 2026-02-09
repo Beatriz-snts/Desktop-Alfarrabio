@@ -2,8 +2,8 @@ import Database from 'better-sqlite3';
 import { app } from 'electron';
 import path from 'node:path';
 
-// Caminho do banco: %appdata%/ki-pedreiro/sebo-pdv.db
-const dbPath = path.join(app.getPath('userData'), 'sebo-pdv.db');
+// Caminho do banco: %appdata%/sebo-alfarrabio-pdv/sebo-alfarrabio.db
+const dbPath = path.join(app.getPath('userData'), 'sebo-alfarrabio.db');
 const db = new Database(dbPath, { verbose: console.log });
 
 export function initDatabase() {
@@ -14,6 +14,7 @@ export function initDatabase() {
     CREATE TABLE IF NOT EXISTS usuarios (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       uuid TEXT UNIQUE NOT NULL, 
+      remote_id INTEGER,
       nome TEXT NOT NULL,
       email TEXT UNIQUE NOT NULL,
       senha TEXT NOT NULL,
@@ -30,6 +31,7 @@ export function initDatabase() {
   db.exec(`
     CREATE TABLE IF NOT EXISTS categorias (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      remote_id INTEGER,
       nome TEXT UNIQUE NOT NULL,
       descricao TEXT,
       sync_status INTEGER DEFAULT 0,
@@ -43,6 +45,7 @@ export function initDatabase() {
   db.exec(`
     CREATE TABLE IF NOT EXISTS generos (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      remote_id INTEGER,
       nome TEXT NOT NULL,
       categoria_id INTEGER,
       sync_status INTEGER DEFAULT 0,
@@ -53,11 +56,26 @@ export function initDatabase() {
     );
   `);
 
+  // Autores (NOVA TABELA para sync)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS autores (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      remote_id INTEGER,
+      nome TEXT NOT NULL,
+      biografia TEXT,
+      sync_status INTEGER DEFAULT 0,
+      criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+      atualizado_em DATETIME,
+      excluido_em DATETIME
+    );
+  `);
+
   // Itens (livros, revistas, etc)
   db.exec(`
     CREATE TABLE IF NOT EXISTS itens (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       uuid TEXT UNIQUE NOT NULL,
+      remote_id INTEGER,
       nome TEXT NOT NULL,
       autor TEXT,
       editora TEXT,
@@ -76,6 +94,17 @@ export function initDatabase() {
       excluido_em DATETIME,
       FOREIGN KEY (categoria_id) REFERENCES categorias(id),
       FOREIGN KEY (genero_id) REFERENCES generos(id)
+    );
+  `);
+
+  // Tabela pivot: Item ↔ Autores (para sync)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS item_autores (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      item_id INTEGER NOT NULL,
+      autor_id INTEGER NOT NULL,
+      FOREIGN KEY (item_id) REFERENCES itens(id) ON DELETE CASCADE,
+      FOREIGN KEY (autor_id) REFERENCES autores(id) ON DELETE CASCADE
     );
   `);
 
@@ -124,6 +153,20 @@ export function initDatabase() {
     );
   `);
 
+  // Migrations: Adicionar colunas remote_id se não existirem (para bancos existentes)
+  try {
+    db.exec(`ALTER TABLE categorias ADD COLUMN remote_id INTEGER`);
+  } catch (e) { /* coluna já existe */ }
+  try {
+    db.exec(`ALTER TABLE generos ADD COLUMN remote_id INTEGER`);
+  } catch (e) { /* coluna já existe */ }
+  try {
+    db.exec(`ALTER TABLE itens ADD COLUMN remote_id INTEGER`);
+  } catch (e) { /* coluna já existe */ }
+  try {
+    db.exec(`ALTER TABLE usuarios ADD COLUMN remote_id INTEGER`);
+  } catch (e) { /* coluna já existe */ }
+
   // Seed de admin padrão se não existir
   const adminExiste = db.prepare('SELECT id FROM usuarios WHERE email = ?').get('admin@sebo.com');
   if (!adminExiste) {
@@ -137,19 +180,60 @@ export function initDatabase() {
       VALUES (?, ?, ?, ?, ?, ?)
     `).run(uuid, 'Administrador', 'admin@sebo.com', senhaHash, 'admin', 'ativo');
 
-    console.log('Usuário admin criado: admin@sebo.com / admin123');
+    console.log('✅ Usuário admin criado: admin@sebo.com / admin123');
   }
 
-  // Seed de categorias padrão
+  // Seed de categorias padrão para Sebo
   const catExiste = db.prepare('SELECT id FROM categorias LIMIT 1').get();
   if (!catExiste) {
-    const categorias = ['Livros', 'Revistas', 'Quadrinhos', 'Outros'];
-    const insertCat = db.prepare('INSERT INTO categorias (nome) VALUES (?)');
-    categorias.forEach(cat => insertCat.run(cat));
-    console.log('Categorias padrão criadas');
+    const categorias = [
+      { nome: 'Livros', descricao: 'Livros novos e usados de todos os gêneros' },
+      { nome: 'Revistas', descricao: 'Revistas, periódicos e publicações seriadas' },
+      { nome: 'Quadrinhos', descricao: 'HQs, mangás, graphic novels' },
+      { nome: 'Discos', descricao: 'Vinis, CDs e DVDs' },
+      { nome: 'Outros', descricao: 'Itens diversos e colecionáveis' }
+    ];
+    const insertCat = db.prepare('INSERT INTO categorias (nome, descricao) VALUES (?, ?)');
+    categorias.forEach(cat => insertCat.run(cat.nome, cat.descricao));
+    console.log('✅ Categorias padrão criadas');
   }
 
-  console.log('Banco de dados inicializado em:', dbPath);
+  // Seed de gêneros literários
+  const generoExiste = db.prepare('SELECT id FROM generos LIMIT 1').get();
+  if (!generoExiste) {
+    // Buscar ID da categoria Livros
+    const catLivros = db.prepare('SELECT id FROM categorias WHERE nome = ?').get('Livros');
+    const catQuadrinhos = db.prepare('SELECT id FROM categorias WHERE nome = ?').get('Quadrinhos');
+
+    const generos = [
+      // Gêneros de Livros
+      { nome: 'Romance', categoria_id: catLivros?.id },
+      { nome: 'Ficção Científica', categoria_id: catLivros?.id },
+      { nome: 'Fantasia', categoria_id: catLivros?.id },
+      { nome: 'Terror/Horror', categoria_id: catLivros?.id },
+      { nome: 'Mistério/Suspense', categoria_id: catLivros?.id },
+      { nome: 'Biografia', categoria_id: catLivros?.id },
+      { nome: 'História', categoria_id: catLivros?.id },
+      { nome: 'Autoajuda', categoria_id: catLivros?.id },
+      { nome: 'Infantil', categoria_id: catLivros?.id },
+      { nome: 'Juvenil', categoria_id: catLivros?.id },
+      { nome: 'Poesia', categoria_id: catLivros?.id },
+      { nome: 'Literatura Brasileira', categoria_id: catLivros?.id },
+      { nome: 'Literatura Estrangeira', categoria_id: catLivros?.id },
+      { nome: 'Acadêmico', categoria_id: catLivros?.id },
+      { nome: 'Religião/Espiritualidade', categoria_id: catLivros?.id },
+      // Gêneros de Quadrinhos
+      { nome: 'Super-heróis', categoria_id: catQuadrinhos?.id },
+      { nome: 'Mangá', categoria_id: catQuadrinhos?.id },
+      { nome: 'Graphic Novel', categoria_id: catQuadrinhos?.id }
+    ];
+
+    const insertGen = db.prepare('INSERT INTO generos (nome, categoria_id) VALUES (?, ?)');
+    generos.forEach(gen => insertGen.run(gen.nome, gen.categoria_id));
+    console.log('✅ Gêneros literários criados');
+  }
+
+  console.log('📚 Banco de dados Sebo Alfarrabio inicializado em:', dbPath);
 }
 
 export default db;

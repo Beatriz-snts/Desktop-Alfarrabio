@@ -5,7 +5,7 @@ class ItensVenda {
 
     listarPorVenda(vendaId) {
         const stmt = db.prepare(`
-      SELECT iv.*, i.nome as item_nome, i.uuid as item_uuid
+      SELECT iv.*, i.nome, i.nome as item_nome, i.uuid as item_uuid, i.autor
       FROM itens_venda iv
       JOIN itens i ON iv.item_id = i.id
       WHERE iv.venda_id = ?

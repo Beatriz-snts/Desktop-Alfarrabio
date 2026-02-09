@@ -70,3 +70,23 @@ contextBridge.exposeInMainWorld('vendas', {
     estatisticasHoje: () => ipcRenderer.invoke('vendas:estatisticasHoje'),
     maisVendidos: (limite) => ipcRenderer.invoke('vendas:maisVendidos', limite)
 });
+
+// API de autores
+contextBridge.exposeInMainWorld('autores', {
+    listar: () => ipcRenderer.invoke('autores:listar'),
+    cadastrar: (autor) => ipcRenderer.invoke('autores:cadastrar', autor)
+});
+
+// API de sincronização
+contextBridge.exposeInMainWorld('sync', {
+    testar: () => ipcRenderer.invoke('sync:testar'),
+    importarCategorias: () => ipcRenderer.invoke('sync:importarCategorias'),
+    importarGeneros: () => ipcRenderer.invoke('sync:importarGeneros'),
+    importarAutores: () => ipcRenderer.invoke('sync:importarAutores'),
+    importarItens: () => ipcRenderer.invoke('sync:importarItens'),
+    exportarVendas: () => ipcRenderer.invoke('sync:exportarVendas'),
+    sincronizarTudo: () => ipcRenderer.invoke('sync:sincronizarTudo'),
+    status: () => ipcRenderer.invoke('sync:status'),
+    estatisticas: () => ipcRenderer.invoke('sync:estatisticas')
+});
+
