@@ -56,6 +56,22 @@ const createWindow = () => {
 };
 
 app.whenReady().then(() => {
+  // Registrar protocolo 'media' para carregar arquivos locais
+  const { protocol, net } = require('electron');
+  protocol.handle('media', (request) => {
+    const url = request.url.replace('media://', '');
+    // Decodificar URL para garantir espaços e caracteres especiais corretos
+    const decodedUrl = decodeURIComponent(url);
+    // No Windows, converter para file:///
+    // Se o caminho começa com letra de drive (e.g. C:/...), adicionar file:///
+    try {
+      return net.fetch(`file:///${decodedUrl}`);
+    } catch (error) {
+      console.error('Erro ao carregar media:', error);
+      return new Response('Not Found', { status: 404 });
+    }
+  });
+
   createWindow();
   initDatabase();
 

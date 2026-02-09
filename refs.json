@@ -1,0 +1,11 @@
+{
+  "dbPath": "C:\\Users\\AMD\\AppData\\Roaming\\Sebo Alfarrabio PDV\\sebo-alfarrabio.db",
+  "refs": [
+    {
+      "name": "item_autores",
+      "sql": "CREATE TABLE item_autores (\n      id INTEGER PRIMARY KEY AUTOINCREMENT,\n      item_id INTEGER NOT NULL,\n      autor_id INTEGER NOT NULL,\n      FOREIGN KEY (item_id) REFERENCES itens(id) ON DELETE CASCADE,\n      FOREIGN KEY (autor_id) REFERENCES autores(id) ON DELETE CASCADE\n    )"
+    }
+  ],
+  "schema": "CREATE TABLE autores (\n      id INTEGER PRIMARY KEY AUTOINCREMENT,\n      remote_id INTEGER,\n      nome TEXT NOT NULL,\n      biografia TEXT,\n      sync_status INTEGER DEFAULT 0,\n      criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,\n      atualizado_em DATETIME,\n      excluido_em DATETIME\n    )",
+  "duplicates": []
+}

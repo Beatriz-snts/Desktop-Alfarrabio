@@ -8,16 +8,29 @@ class ItemController {
     listar() {
         try {
             const data = this.itens.listar();
-            return { success: true, data };
+            // Normalizar caminhos de imagem
+            const dataNormalizada = data.map(item => this.normalizarItem(item));
+            return { success: true, data: dataNormalizada };
         } catch (error) {
             return { success: false, error: error.message };
         }
     }
 
+    normalizarItem(item) {
+        if (item.imagem_path) {
+            // Converter backslashes para slashes
+            let cleanPath = item.imagem_path.replace(/\\/g, '/');
+            // Garantir que começa com media://
+            item.imagem_path = `media://${cleanPath}`;
+        }
+        return item;
+    }
+
     listarDisponiveis() {
         try {
             const data = this.itens.listarDisponiveis();
-            return { success: true, data };
+            const dataNormalizada = data.map(item => this.normalizarItem(item));
+            return { success: true, data: dataNormalizada };
         } catch (error) {
             return { success: false, error: error.message };
         }
@@ -29,7 +42,7 @@ class ItemController {
             if (!data) {
                 return { success: false, error: 'Item não encontrado' };
             }
-            return { success: true, data };
+            return { success: true, data: this.normalizarItem(data) };
         } catch (error) {
             return { success: false, error: error.message };
         }
@@ -38,7 +51,8 @@ class ItemController {
     buscar(termo) {
         try {
             const data = this.itens.buscar(termo);
-            return { success: true, data };
+            const dataNormalizada = data.map(item => this.normalizarItem(item));
+            return { success: true, data: dataNormalizada };
         } catch (error) {
             return { success: false, error: error.message };
         }
@@ -47,7 +61,8 @@ class ItemController {
     filtrarPorCategoria(categoriaId) {
         try {
             const data = this.itens.filtrarPorCategoria(categoriaId);
-            return { success: true, data };
+            const dataNormalizada = data.map(item => this.normalizarItem(item));
+            return { success: true, data: dataNormalizada };
         } catch (error) {
             return { success: false, error: error.message };
         }
@@ -56,7 +71,8 @@ class ItemController {
     filtrarPorGenero(generoId) {
         try {
             const data = this.itens.filtrarPorGenero(generoId);
-            return { success: true, data };
+            const dataNormalizada = data.map(item => this.normalizarItem(item));
+            return { success: true, data: dataNormalizada };
         } catch (error) {
             return { success: false, error: error.message };
         }
@@ -65,7 +81,8 @@ class ItemController {
     buscarEstoqueBaixo() {
         try {
             const data = this.itens.buscarEstoqueBaixo();
-            return { success: true, data };
+            const dataNormalizada = data.map(item => this.normalizarItem(item));
+            return { success: true, data: dataNormalizada };
         } catch (error) {
             return { success: false, error: error.message };
         }
