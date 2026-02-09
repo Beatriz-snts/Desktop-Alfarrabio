@@ -1,0 +1,154 @@
+================================================================================
+REGRAS DE NEGÓCIO - SEBO ALFARRABIO PDV
+================================================================================
+
+Este documento descreve as regras de negócio implementadas no sistema PDV 
+do Sebo Alfarrabio.
+
+--------------------------------------------------------------------------------
+1. AUTENTICAÇÃO E AUTORIZAÇÃO
+--------------------------------------------------------------------------------
+
+1.1. Roles de Usuário:
+     - admin: Acesso completo a todas as funcionalidades
+     - vendedor: Acesso ao PDV, visualização de vendas e itens
+
+1.2. Permissões por Role:
+     - Vendedor pode: 
+       * Realizar vendas no PDV
+       * Visualizar itens, categorias, gêneros
+       * Visualizar histórico de vendas
+     
+     - Admin pode (além das permissões de vendedor):
+       * Cadastrar/editar/excluir itens
+       * Gerenciar categorias e gêneros
+       * Gerenciar usuários
+       * Cancelar vendas finalizadas
+       * Acessar relatórios e configurações
+
+1.3. Senhas:
+     - Senhas são armazenadas com hash bcrypt (12 rounds)
+     - Mínimo de 6 caracteres
+
+--------------------------------------------------------------------------------
+2. GESTÃO DE ESTOQUE
+--------------------------------------------------------------------------------
+
+2.1. Regras de Estoque:
+     - Itens só podem ser vendidos se estoque > 0
+     - Estoque é decrementado automaticamente ao finalizar venda
+     - Estoque é restaurado automaticamente ao cancelar venda
+
+2.2. Alertas de Estoque Baixo:
+     - Cada item possui um estoque_minimo (padrão: 5)
+     - Itens com estoque <= estoque_minimo aparecem no dashboard
+     - Indicador visual vermelho no PDV para itens com estoque baixo
+
+--------------------------------------------------------------------------------
+3. VENDAS (PDV)
+--------------------------------------------------------------------------------
+
+3.1. Fluxo de Venda:
+     1. Criar venda (status: 'aberta')
+     2. Adicionar itens ao carrinho
+     3. Aplicar desconto (opcional)
+     4. Selecionar forma de pagamento
+     5. Finalizar venda (status: 'concluida')
+
+3.2. Status de Venda:
+     - aberta: Venda em andamento, pode adicionar/remover itens
+     - concluida: Venda finalizada, estoque foi decrementado
+     - cancelada: Venda cancelada, estoque foi restaurado
+
+3.3. Formas de Pagamento:
+     - dinheiro: Com cálculo de troco
+     - pix: Pagamento instantâneo
+     - cartao_debito: Cartão de débito
+     - cartao_credito: Cartão de crédito
+
+3.4. Descontos:
+     - Desconto em valor (R$), aplicado sobre o subtotal
+     - Desconto máximo: 100% do subtotal
+     - Apenas usuários autorizados podem aplicar descontos
+
+--------------------------------------------------------------------------------
+4. ITENS / LIVROS
+--------------------------------------------------------------------------------
+
+4.1. Campos Obrigatórios:
+     - nome: Nome do item (único)
+     - preco: Preço > 0
+
+4.2. Campos Opcionais:
+     - autor: Nome do autor
+     - editora: Nome da editora
+     - isbn: Código ISBN
+     - descricao: Descrição do item
+     - categoria_id: Categoria do item
+     - genero_id: Gênero literário
+     - imagem_path: Caminho da imagem
+     - preco_promocional: Preço em promoção (usado automaticamente se definido)
+
+4.3. Preço nas Vendas:
+     - Se preco_promocional estiver definido, usar preco_promocional
+     - Caso contrário, usar preco normal
+
+--------------------------------------------------------------------------------
+5. CATEGORIAS E GÊNEROS
+--------------------------------------------------------------------------------
+
+5.1. Categorias:
+     - Usadas para classificação ampla (Livros, Revistas, Quadrinhos, etc.)
+     - Nome único obrigatório
+
+5.2. Gêneros:
+     - Sub-classificação dentro de categorias
+     - Opcional: pode estar vinculado a uma categoria
+     - Exemplos: Romance, Ficção Científica, Biografia, etc.
+
+--------------------------------------------------------------------------------
+6. SINCRONIZAÇÃO (FUTURO)
+--------------------------------------------------------------------------------
+
+6.1. Modo Offline:
+     - Todas as operações são salvas localmente em SQLite
+     - Campo sync_status indica se registro foi sincronizado
+       * 0: Não sincronizado (modificado localmente)
+       * 1: Sincronizado com servidor
+
+6.2. Campos de Controle:
+     - criado_em: Data de criação
+     - atualizado_em: Data da última atualização
+     - excluido_em: Soft delete (NULL = ativo)
+
+--------------------------------------------------------------------------------
+7. VALIDAÇÕES
+--------------------------------------------------------------------------------
+
+7.1. Itens:
+     - Nome único (não pode repetir)
+     - Preço > 0
+     - Estoque >= 0
+
+7.2. Usuários:
+     - Email único (não pode repetir)
+     - Email formato válido
+     - Senha mínimo 6 caracteres
+
+7.3. Vendas:
+     - Não pode finalizar venda sem itens
+     - Não pode vender item sem estoque
+     - Não pode cancelar venda já cancelada
+
+--------------------------------------------------------------------------------
+8. AUDITORIA
+--------------------------------------------------------------------------------
+
+8.1. Rastreabilidade:
+     - Cada venda registra o usuario_id que realizou
+     - Timestamps em todas as tabelas
+     - Soft delete para manter histórico
+
+================================================================================
+FIM DO DOCUMENTO
+================================================================================
