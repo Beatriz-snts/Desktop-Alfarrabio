@@ -9,11 +9,11 @@ async function runSync() {
         await app.whenReady();
 
         // Importar DB e inicializar
-        const { initDatabase } = require('./src/Main_back/Database/db.js');
+        const { initDatabase } = await import('./src/Main_back/Database/db.js');
         initDatabase();
 
         // Importar SyncService
-        const SyncService = require('./src/Main_back/Services/SyncService.js').default;
+        const SyncService = (await import('./src/Main_back/Services/SyncService.js')).default;
 
         console.log('Iniciando sync completo...');
         const result = await SyncService.sincronizarTudo();
@@ -29,6 +29,7 @@ async function runSync() {
         process.exit(0);
     } catch (error) {
         console.error('❌ Erro fatal:', error);
+        if (error.stack) console.error(error.stack);
         process.exit(1);
     }
 }

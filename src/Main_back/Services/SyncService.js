@@ -3,6 +3,9 @@
 
 import db from '../Database/db.js';
 import { SyncConfig } from '../Database/SyncConfig.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import { app } from 'electron';
 
 class SyncService {
     constructor() {
@@ -85,6 +88,40 @@ class SyncService {
         }
     }
 
+    async importarAvaliacoes() {
+        try {
+            const response = await fetch(`${SyncConfig.API_BASE_URL}${SyncConfig.ENDPOINTS.avaliacoes}`);
+            const result = await response.json();
+
+            const avaliacoes = result.avaliacoes || [];
+            let importados = 0;
+
+            const stmt = db.prepare(`
+                INSERT OR REPLACE INTO avaliacoes 
+                (remote_id, nota, comentario, data_iso, usuario_id, usuario_nome, usuario_foto, item_remote_id, sync_status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+            `);
+
+            for (const av of avaliacoes) {
+                stmt.run(
+                    av.id,
+                    av.nota,
+                    av.comentario || null,
+                    av.data_iso || null,
+                    av.usuario?.id || null,
+                    av.usuario?.nome || null,
+                    av.usuario?.foto || null,
+                    av.item?.id || null
+                );
+                importados++;
+            }
+
+            return { success: true, importados };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    }
+
     async importarAutores() {
         try {
             const response = await fetch(`${SyncConfig.API_BASE_URL}${SyncConfig.ENDPOINTS.autores}`);
@@ -94,12 +131,12 @@ class SyncService {
             let importados = 0;
 
             const stmt = db.prepare(`
-                INSERT OR REPLACE INTO autores (remote_id, nome, biografia, sync_status, atualizado_em)
-                VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)
+                INSERT OR REPLACE INTO autores (remote_id, nome, sync_status, atualizado_em)
+                VALUES (?, ?, 1, CURRENT_TIMESTAMP)
             `);
 
             for (const autor of autores) {
-                stmt.run(autor.id_autor, autor.nome_autor, autor.biografia || null);
+                stmt.run(autor.id_autor, autor.nome_autor);
                 importados++;
             }
 
@@ -118,8 +155,8 @@ class SyncService {
 
             const stmt = db.prepare(`
                 INSERT OR REPLACE INTO itens 
-                (uuid, remote_id, nome, autor, editora, isbn, descricao, preco, categoria_id, genero_id, imagem_path, estoque, sync_status, atualizado_em)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP)
+                (uuid, remote_id, nome, autor, editora, isbn, descricao, preco, preco_item, tipo, ano_publicacao, duracao_minutos, numero_edicao, imagem_path, estoque, sync_status, atualizado_em)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP)
             `);
 
             while (temMais) {
@@ -134,25 +171,35 @@ class SyncService {
                 }
 
                 for (const item of itens) {
-                    // Gerar UUID local se não existir
-                    const uuid = this.gerarUUID();
+                    // Buscar UUID local se já existir pelo remote_id para evitar duplicatas
+                    const itemExistente = db.prepare('SELECT uuid, imagem_path FROM itens WHERE remote_id = ?').get(item.id_item);
+                    const uuid = itemExistente ? itemExistente.uuid : this.gerarUUID();
 
-                    // Buscar categoria_id local pelo remote_id
-                    const catLocal = db.prepare('SELECT id FROM categorias WHERE remote_id = ?').get(item.id_categoria);
-                    const genLocal = db.prepare('SELECT id FROM generos WHERE remote_id = ?').get(item.id_genero);
+                    // Lógica de download de imagem
+                    let localImagePath = itemExistente?.imagem_path || null;
+                    if (item.foto_item) {
+                        const imageFileName = path.basename(item.foto_item);
+                        const downloadResult = await this.baixarImagem(item.foto_item, imageFileName);
+                        if (downloadResult.success) {
+                            localImagePath = downloadResult.path;
+                        }
+                    }
 
                     stmt.run(
                         uuid,
                         item.id_item,
-                        item.titulo_item || item.titulo,
-                        item.autores || null, // Autores concatenados
-                        item.editora_gravadora || item.editora || null,
+                        item.titulo,
+                        Array.isArray(item.autores) ? item.autores.join(', ') : (item.autores || null),
+                        item.editora || null,
                         item.isbn || null,
                         item.descricao || null,
-                        item.preco_item || item.preco,
-                        catLocal?.id || null,
-                        genLocal?.id || null,
-                        item.foto_item || item.imagem || null,
+                        item.preco || 0,
+                        item.preco_item || 0,
+                        item.tipo || null,
+                        item.ano_publicacao || null,
+                        item.duracao_minutos || null,
+                        item.numero_edicao || null,
+                        localImagePath,
                         item.estoque || 0
                     );
                     importados++;
@@ -233,6 +280,40 @@ class SyncService {
         }
     }
 
+    // ==================== AUXILIARES DE IMAGEM ====================
+
+    async baixarImagem(relativeUrl, fileName) {
+        try {
+            // URL Absoluta da imagem (ajustar conforme BASE_URL ou servidor de mídia)
+            const baseUrl = SyncConfig.API_BASE_URL.replace('/index.php/api', '');
+            const url = `${baseUrl}${relativeUrl}`;
+
+            const uploadDir = path.join(app.getPath('userData'), 'uploads', 'itens');
+            if (!fs.existsSync(uploadDir)) {
+                fs.mkdirSync(uploadDir, { recursive: true });
+            }
+
+            const localPath = path.join(uploadDir, fileName);
+
+            // Verificar se já existe para evitar download repetido
+            if (fs.existsSync(localPath)) {
+                return { success: true, path: localPath };
+            }
+
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`Falha ao baixar imagem: ${response.status}`);
+
+            const arrayBuffer = await response.arrayBuffer();
+            const buffer = Buffer.from(arrayBuffer);
+            fs.writeFileSync(localPath, buffer);
+
+            return { success: true, path: localPath };
+        } catch (error) {
+            console.error(`Erro ao baixar imagem ${fileName}:`, error.message);
+            return { success: false, error: error.message };
+        }
+    }
+
     // ==================== SYNC COMPLETO ====================
 
     async sincronizarTudo() {
@@ -256,6 +337,7 @@ class SyncService {
             resultados.generos = await this.importarGeneros();
             resultados.autores = await this.importarAutores();
             resultados.itens = await this.importarItens();
+            resultados.avaliacoes = await this.importarAvaliacoes();
 
             // Exportar vendas locais
             resultados.vendas = await this.exportarVendas();

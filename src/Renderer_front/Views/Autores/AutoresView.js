@@ -6,10 +6,9 @@ class AutoresView {
 
     async render() {
         try {
-            // No main.js implementamos o usuarios, mas autores ainda não tem controller.
-            // Vou usar o IPC genérico se existir ou buscar via SyncService bridge
-            // Para simplicidade, vamos listar do banco local via IPC que vou adicionar
-            this.autores = await window.usuarios.listarAutores(); // Vou adicionar este handler
+            // Corrigido: Usando a ponte window.autores.listar() que está no preload.js
+            const res = await window.autores.listar();
+            this.autores = res.data || [];
         } catch (error) {
             console.error('Erro ao buscar autores:', error);
             this.autores = [];

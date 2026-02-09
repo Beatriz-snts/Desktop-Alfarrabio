@@ -45,6 +45,7 @@ class ItensView {
                             <table>
                                 <thead>
                                     <tr>
+                                        <th>Capa</th>
                                         <th>Nome</th>
                                         <th>Autor</th>
                                         <th>Categoria</th>
@@ -75,11 +76,18 @@ class ItensView {
         }
 
         if (itens.length === 0) {
-            return '<tr><td colspan="6" class="text-center text-muted">Nenhum item encontrado</td></tr>';
+            return '<tr><td colspan="7" class="text-center text-muted">Nenhum item encontrado</td></tr>';
         }
 
         return itens.map(item => `
             <tr>
+                <td>
+                    <div class="item-thumb-container">
+                        ${item.imagem_path
+                ? `<img src="${item.imagem_path}" class="item-thumb" alt="${item.nome}">`
+                : '<div class="item-thumb-placeholder">📖</div>'}
+                    </div>
+                </td>
                 <td><strong>${item.nome}</strong></td>
                 <td>${item.autor || '-'}</td>
                 <td><span class="badge badge-info">${item.categoria_nome || '-'}</span></td>
@@ -154,6 +162,18 @@ class ItensView {
                     <form id="form-item">
                         <input type="hidden" id="item-uuid" value="${uuid || ''}">
                         
+                        <!-- Preview da Capa -->
+                        <div class="form-row" style="margin-bottom: 1.5rem; display: flex; justify-content: center;">
+                            <div class="item-form-preview" style="text-align: center;">
+                                <div class="item-thumb-container" style="width: 120px; height: 160px; margin: 0 auto 0.5rem;">
+                                    ${item.imagem_path
+                ? `<img src="${item.imagem_path}" class="item-thumb" id="preview-img">`
+                : '<div class="item-thumb-placeholder" style="font-size: 3rem;">📖</div>'}
+                                </div>
+                                <small class="text-muted">Capa do Livro</small>
+                            </div>
+                        </div>
+
                         <div class="form-row">
                             <div class="form-group">
                                 <label>Nome *</label>
@@ -187,8 +207,8 @@ class ItensView {
                                 <select class="form-control" id="item-categoria">
                                     <option value="">Selecione</option>
                                     ${this.categorias.map(c =>
-            `<option value="${c.id}" ${item.categoria_id == c.id ? 'selected' : ''}>${c.nome}</option>`
-        ).join('')}
+                    `<option value="${c.id}" ${item.categoria_id == c.id ? 'selected' : ''}>${c.nome}</option>`
+                ).join('')}
                                 </select>
                             </div>
                             <div class="form-group">
@@ -196,8 +216,8 @@ class ItensView {
                                 <select class="form-control" id="item-genero">
                                     <option value="">Selecione</option>
                                     ${this.generos.map(g =>
-            `<option value="${g.id}" ${item.genero_id == g.id ? 'selected' : ''}>${g.nome}</option>`
-        ).join('')}
+                    `<option value="${g.id}" ${item.genero_id == g.id ? 'selected' : ''}>${g.nome}</option>`
+                ).join('')}
                                 </select>
                             </div>
                         </div>

@@ -1,6 +1,8 @@
 import Database from 'better-sqlite3';
 import { app } from 'electron';
 import path from 'node:path';
+import bcrypt from 'bcryptjs';
+import crypto from 'node:crypto';
 
 // Caminho do banco: %appdata%/sebo-alfarrabio-pdv/sebo-alfarrabio.db
 const dbPath = path.join(app.getPath('userData'), 'sebo-alfarrabio.db');
@@ -83,6 +85,11 @@ export function initDatabase() {
       descricao TEXT,
       preco REAL NOT NULL,
       preco_promocional REAL,
+      preco_item REAL,
+      tipo TEXT,
+      ano_publicacao INTEGER,
+      duracao_minutos INTEGER,
+      numero_edicao INTEGER,
       categoria_id INTEGER,
       genero_id INTEGER,
       imagem_path TEXT,
@@ -94,6 +101,23 @@ export function initDatabase() {
       excluido_em DATETIME,
       FOREIGN KEY (categoria_id) REFERENCES categorias(id),
       FOREIGN KEY (genero_id) REFERENCES generos(id)
+    );
+  `);
+
+  // Avaliações/Feedback (NOVA TABELA)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS avaliacoes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      remote_id INTEGER UNIQUE,
+      nota INTEGER,
+      comentario TEXT,
+      data_iso DATETIME,
+      usuario_id INTEGER,
+      usuario_nome TEXT,
+      usuario_foto TEXT,
+      item_remote_id INTEGER,
+      sync_status INTEGER DEFAULT 0,
+      criado_em DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
 
@@ -154,24 +178,70 @@ export function initDatabase() {
   `);
 
   // Migrations: Adicionar colunas remote_id se não existirem (para bancos existentes)
+  const columns = [
+    { table: 'categorias', column: 'remote_id', type: 'INTEGER' },
+    { table: 'generos', column: 'remote_id', type: 'INTEGER' },
+    { table: 'itens', column: 'remote_id', type: 'INTEGER' },
+    { table: 'itens', column: 'preco_item', type: 'REAL' },
+    { table: 'itens', column: 'tipo', type: 'TEXT' },
+    { table: 'itens', column: 'ano_publicacao', type: 'INTEGER' },
+    { table: 'itens', column: 'duracao_minutos', type: 'INTEGER' },
+    { table: 'itens', column: 'numero_edicao', type: 'INTEGER' },
+    { table: 'usuarios', column: 'remote_id', type: 'INTEGER' }
+  ];
+
+  columns.forEach(col => {
+    try {
+      db.exec(`ALTER TABLE ${col.table} ADD COLUMN ${col.column} ${col.type}`);
+    } catch (e) { /* coluna já existe */ }
+  });
+
+  // LIMPEZA DE DUPLICADOS (Baseado no remote_id)
   try {
-    db.exec(`ALTER TABLE categorias ADD COLUMN remote_id INTEGER`);
-  } catch (e) { /* coluna já existe */ }
+    console.log('🧹 Iniciando limpeza de itens duplicados...');
+    db.exec(`
+      DELETE FROM itens 
+      WHERE id NOT IN (
+        SELECT MIN(id) 
+        FROM itens 
+        GROUP BY remote_id
+      ) AND remote_id IS NOT NULL;
+    `);
+
+    db.exec(`
+      DELETE FROM categorias 
+      WHERE id NOT IN (
+        SELECT MIN(id) 
+        FROM categorias 
+        GROUP BY remote_id
+      ) AND remote_id IS NOT NULL;
+    `);
+
+    db.exec(`
+      DELETE FROM generos 
+      WHERE id NOT IN (
+        SELECT MIN(id) 
+        FROM generos 
+        GROUP BY remote_id
+      ) AND remote_id IS NOT NULL;
+    `);
+    console.log('✅ Limpeza concluída');
+  } catch (e) {
+    console.error('❌ Erro na limpeza de duplicados:', e.message);
+  }
+
+  // CRIAR ÍNDICES ÚNICOS (Para prevenir novas duplicatas)
   try {
-    db.exec(`ALTER TABLE generos ADD COLUMN remote_id INTEGER`);
-  } catch (e) { /* coluna já existe */ }
-  try {
-    db.exec(`ALTER TABLE itens ADD COLUMN remote_id INTEGER`);
-  } catch (e) { /* coluna já existe */ }
-  try {
-    db.exec(`ALTER TABLE usuarios ADD COLUMN remote_id INTEGER`);
-  } catch (e) { /* coluna já existe */ }
+    db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_itens_remote_id ON itens(remote_id) WHERE remote_id IS NOT NULL`);
+    db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_categorias_remote_id ON categorias(remote_id) WHERE remote_id IS NOT NULL`);
+    db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_generos_remote_id ON generos(remote_id) WHERE remote_id IS NOT NULL`);
+  } catch (e) {
+    console.error('❌ Erro ao criar índices únicos:', e.message);
+  }
 
   // Seed de admin padrão se não existir
   const adminExiste = db.prepare('SELECT id FROM usuarios WHERE email = ?').get('admin@sebo.com');
   if (!adminExiste) {
-    const bcrypt = require('bcryptjs');
-    const crypto = require('node:crypto');
     const senhaHash = bcrypt.hashSync('admin123', 10);
     const uuid = crypto.randomUUID();
 

@@ -10,7 +10,7 @@ import CategoriaController from './Main_back/Controllers/CategoriaController.js'
 import GeneroController from './Main_back/Controllers/GeneroController.js';
 import AutorController from './Main_back/Controllers/AutorController.js';
 import VendaController from './Main_back/Controllers/VendaController.js';
-import { initDatabase } from './Main_back/Database/db.js';
+import db, { initDatabase } from './Main_back/Database/db.js';
 
 if (started) {
   app.quit();
@@ -318,7 +318,7 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle('sync:estatisticas', () => {
-    const db = require('./Main_back/Database/db.js').default;
+    // db já importado globalmente
 
     const categorias = db.prepare('SELECT COUNT(*) as count FROM categorias WHERE excluido_em IS NULL').get();
     const generos = db.prepare('SELECT COUNT(*) as count FROM generos WHERE excluido_em IS NULL').get();

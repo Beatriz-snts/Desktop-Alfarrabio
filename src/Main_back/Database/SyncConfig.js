@@ -3,16 +3,16 @@
 
 export const SyncConfig = {
     // URL base da API do site (PHP backend)
-    API_BASE_URL: 'http://localhost:8080/backend/api',
+    API_BASE_URL: 'http://localhost:2000/backend/index.php/api',
 
     // Endpoints da API
     ENDPOINTS: {
-        itens: '/sync.php?recurso=itens',
-        categorias: '/sync.php?recurso=categorias',
-        generos: '/sync.php?recurso=generos',
-        autores: '/sync.php?recurso=autores',
-        vendas: '/sync.php?recurso=vendas',
-        status: '/sync.php?recurso=status'
+        itens: '/item',
+        categorias: '/categorias',
+        generos: '/generos',
+        avaliacoes: '/buscarpedidos',
+        autores: '/autores',
+        vendas: '/vendas',
     },
 
     // Intervalo de sync automático (em ms, 0 = desativado)
@@ -25,16 +25,21 @@ export const SyncConfig = {
     FIELD_MAPPING: {
         itens: {
             'id_item': 'remote_id',
-            'titulo_item': 'nome',
-            'preco_item': 'preco',
+            'titulo': 'nome',
+            'preco': 'preco',
             'foto_item': 'imagem_path',
             'id_genero': 'genero_id',
             'id_categoria': 'categoria_id',
-            'editora_gravadora': 'editora',
+            'editora': 'editora',
             'isbn': 'isbn',
             'estoque': 'estoque',
             'descricao': 'descricao',
-            'excluido_em': 'excluido_em'
+            'tipo': 'tipo',
+            'ano_publicacao': 'ano_publicacao',
+            'duracao_minutos': 'duracao_minutos',
+            'numero_edicao': 'numero_edicao',
+            'preco_item': 'preco_item',
+            'autores': 'autor'
         },
         categorias: {
             'id_categoria': 'remote_id',
@@ -44,10 +49,19 @@ export const SyncConfig = {
             'id_generos': 'remote_id',
             'nome_generos': 'nome'
         },
+        avaliacoes: {
+            'id': 'remote_id',
+            'nota': 'nota',
+            'comentario': 'comentario',
+            'data_iso': 'data_iso',
+            'usuario.id': 'usuario_id',
+            'usuario.nome': 'usuario_nome',
+            'usuario.foto': 'usuario_foto',
+            'item.id': 'item_remote_id'
+        },
         autores: {
             'id_autor': 'remote_id',
-            'nome_autor': 'nome',
-            'biografia': 'biografia'
+            'nome_autor': 'nome'
         }
     }
 };
