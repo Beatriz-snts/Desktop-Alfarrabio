@@ -58,22 +58,37 @@ const createWindow = () => {
 app.whenReady().then(() => {
   // Registrar protocolo 'media' para carregar arquivos locais
   const { protocol, net } = require('electron');
+  const { pathToFileURL } = require('node:url');
+
   protocol.handle('media', (request) => {
-    const url = request.url.replace('media://', '');
-    // Decodificar URL para garantir espaços e caracteres especiais corretos
-    const decodedUrl = decodeURIComponent(url);
-    // No Windows, converter para file:///
-    // Se o caminho começa com letra de drive (e.g. C:/...), adicionar file:///
+    // A URL vem como media://c:/path ou media:///c:/path
+    // Removemos o prefixo media:// e qualquer barra inicial redundante
+    let purePath = request.url.replace(/^media:\/\/+/i, '');
+
+    // No Windows, se sobrar uma barra antes do drive (ex: /C:/...), removemos ela
+    if (purePath.startsWith('/') && purePath.match(/^\/[a-zA-Z]:/)) {
+      purePath = purePath.substring(1);
+    }
+
+    const decodedPath = decodeURIComponent(purePath);
+
     try {
-      return net.fetch(`file:///${decodedUrl}`);
+      const fileUrl = pathToFileURL(decodedPath).toString();
+      return net.fetch(fileUrl);
     } catch (error) {
-      console.error('Erro ao carregar media:', error);
+      console.error('Erro ao carregar media:', error, 'Path:', decodedPath);
       return new Response('Not Found', { status: 404 });
     }
   });
 
   createWindow();
   initDatabase();
+
+  // Iniciar sincronização automática em segundo plano
+  import('./Main_back/Services/SyncService.js').then(module => {
+    const SyncService = module.default;
+    SyncService.iniciarAutoSync();
+  });
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

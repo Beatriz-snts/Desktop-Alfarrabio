@@ -15,8 +15,8 @@ export const SyncConfig = {
         vendas: '/vendas',
     },
 
-    // Intervalo de sync automático (em ms, 0 = desativado)
-    AUTO_SYNC_INTERVAL: 0,
+    // Intervalo de sync automático (em ms, 10 minutos = 600000)
+    AUTO_SYNC_INTERVAL: 600000,
 
     // Timeout de requisições (ms)
     REQUEST_TIMEOUT: 30000,

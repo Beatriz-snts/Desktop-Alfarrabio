@@ -20,8 +20,8 @@ class ItemController {
         if (item.imagem_path) {
             // Converter backslashes para slashes
             let cleanPath = item.imagem_path.replace(/\\/g, '/');
-            // Garantir que começa com media://
-            item.imagem_path = `media://${cleanPath}`;
+            // Garantir que começa com media:/// (3 barras para caminhos absolutos)
+            item.imagem_path = `media:///${cleanPath}`;
         }
         return item;
     }

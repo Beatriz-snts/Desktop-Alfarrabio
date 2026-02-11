@@ -11,6 +11,7 @@ class SyncService {
     constructor() {
         this.ultimoSync = null;
         this.emAndamento = false;
+        this.syncTimer = null;
     }
 
     // ==================== MÉTODOS DE CONEXÃO ====================
@@ -177,7 +178,17 @@ class SyncService {
 
                     // Lógica de download de imagem
                     let localImagePath = itemExistente?.imagem_path || null;
-                    if (item.foto_item) {
+
+                    // Priorizar imagem_base64 se enviada pela API
+                    if (item.imagem_base64) {
+                        const fileName = item.foto_item ? path.basename(item.foto_item) : `item_${item.id_item}.jpg`;
+                        const res = this.salvarBase64ComoArquivo(item.imagem_base64, fileName);
+                        if (res.success) {
+                            localImagePath = res.path;
+                        }
+                    }
+                    // Fallback para download via URL se houver foto_item e não tiver base64
+                    else if (item.foto_item) {
                         const imageFileName = path.basename(item.foto_item);
                         const downloadResult = await this.baixarImagem(item.foto_item, imageFileName);
                         if (downloadResult.success) {
@@ -282,6 +293,33 @@ class SyncService {
 
     // ==================== AUXILIARES DE IMAGEM ====================
 
+    salvarBase64ComoArquivo(base64Data, fileName) {
+        try {
+            // Extrair dados base64 (removendo prefixo se houver: data:image/jpeg;base64,...)
+            const matches = base64Data.match(/^data:([A-Za-z-+/]+);base64,(.+)$/);
+            let stringData = base64Data;
+
+            if (matches && matches.length === 3) {
+                stringData = matches[2];
+            }
+
+            const uploadDir = path.join(app.getPath('userData'), 'uploads', 'itens');
+            if (!fs.existsSync(uploadDir)) {
+                fs.mkdirSync(uploadDir, { recursive: true });
+            }
+
+            const localPath = path.join(uploadDir, fileName);
+            const buffer = Buffer.from(stringData, 'base64');
+
+            fs.writeFileSync(localPath, buffer);
+
+            return { success: true, path: localPath };
+        } catch (error) {
+            console.error(`Erro ao salvar imagem base64 ${fileName}:`, error.message);
+            return { success: false, error: error.message };
+        }
+    }
+
     async baixarImagem(relativeUrl, fileName) {
         try {
             // URL Absoluta da imagem (ajustar conforme BASE_URL ou servidor de mídia)
@@ -381,8 +419,41 @@ class SyncService {
     getStatusSync() {
         return {
             emAndamento: this.emAndamento,
-            ultimoSync: this.getUltimoSync()
+            ultimoSync: this.getUltimoSync(),
+            autoSyncAtivo: !!this.syncTimer
         };
+    }
+
+    // ==================== AUTO-SYNC ENGINE ====================
+
+    iniciarAutoSync() {
+        if (SyncConfig.AUTO_SYNC_INTERVAL <= 0) {
+            console.log('🔄 Auto-sync desativado nas configurações.');
+            return;
+        }
+
+        if (this.syncTimer) {
+            console.log('🔄 Auto-sync já está rodando.');
+            return;
+        }
+
+        console.log(`🚀 Auto-sync iniciado. Intervalo: ${SyncConfig.AUTO_SYNC_INTERVAL / 1000}s`);
+
+        // Executar primeira vez após um pequeno delay para não sobrecarregar o boot
+        setTimeout(() => this.sincronizarTudo(), 5000);
+
+        this.syncTimer = setInterval(() => {
+            console.log('🕒 Executando sincronização automática de rotina...');
+            this.sincronizarTudo();
+        }, SyncConfig.AUTO_SYNC_INTERVAL);
+    }
+
+    pararAutoSync() {
+        if (this.syncTimer) {
+            clearInterval(this.syncTimer);
+            this.syncTimer = null;
+            console.log('🛑 Auto-sync parado.');
+        }
     }
 }
 

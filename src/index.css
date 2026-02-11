@@ -683,8 +683,8 @@ table td {
 
 /* Item Thumbnails */
 .item-thumb-container {
-  width: 48px;
-  height: 64px;
+  width: 70px;
+  height: 95px;
   background: var(--bg-main);
   border-radius: 4px;
   overflow: hidden;
