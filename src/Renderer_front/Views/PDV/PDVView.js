@@ -79,6 +79,9 @@ class PDVView {
     }
 
     async setupEvents() {
+        if (this.eventsSetup) return;
+        this.eventsSetup = true;
+
         await this.carregarProdutos();
 
         // Busca
@@ -108,7 +111,7 @@ class PDVView {
         // Grid de produtos
         const grid = document.getElementById('products-grid');
         grid.addEventListener('click', (e) => {
-            const card = e.target.closest('.product-card');
+            const card = e.target.closest('.pdv-card');
             if (card) {
                 const uuid = card.dataset.uuid;
                 this.adicionarAoCarrinho(uuid);
@@ -198,69 +201,67 @@ class PDVView {
             return;
         }
 
-        grid.innerHTML = produtos.map(p => `
-            <div class="product-card" data-uuid="${p.uuid}">
-                <div class="product-image">
-                    ${p.imagem_path ? `<img src="${p.imagem_path}" alt="${p.nome}">` : '📖'}
-                </div>
-                <div class="product-info">
-                    <div class="product-name" title="${p.nome}">${p.nome}</div>
-                    <div class="product-author">${p.autor || 'Autor desconhecido'}</div>
-                    <div class="product-price">R$ ${p.preco.toFixed(2)}</div>
-                    <div class="product-stock ${p.estoque <= 5 ? 'low' : ''}">
-                        Estoque: ${p.estoque}
+        grid.innerHTML = produtos.map(p => {
+            const titulo = p.titulo || p.nome || 'Sem título';
+            const preco = parseFloat(p.preco) || 0;
+            const imagemPath = p.imagem_path;
+
+            return `
+                <div class="pdv-card" data-uuid="${p.uuid}">
+                    <div class="pdv-card-image-container">
+                        ${imagemPath
+                    ? `<img src="${imagemPath}" alt="${titulo}" class="pdv-card-img">`
+                    : `<div class="pdv-card-placeholder">📖</div>`
+                }
+                    </div>
+                    <div class="pdv-card-info">
+                        <h3>${titulo}</h3>
+                        <p class="pdv-card-price">R$ ${preco.toFixed(2)}</p>
                     </div>
                 </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
     }
 
     async adicionarAoCarrinho(uuid) {
         try {
-            // Buscar detalhes do item
             const result = await window.itens.buscarPorId(uuid);
-            if (!result.data) {
-                this.showToast('Item não encontrado', 'error');
+            if (!result.success) {
+                this.showToast('Produto não encontrado', 'error');
                 return;
             }
 
-            const item = result.data;
+            const produto = result.data;
 
-            // Verificar se já existe no carrinho
-            const existente = this.carrinho.find(i => i.uuid === uuid);
-            if (existente) {
-                existente.quantidade++;
+            // Verificar se já está no carrinho
+            const itemExistente = this.carrinho.find(i => i.uuid === uuid);
+            if (itemExistente) {
+                itemExistente.quantidade++;
             } else {
                 this.carrinho.push({
-                    uuid: item.uuid,
-                    nome: item.nome,
-                    preco: item.preco_promocional || item.preco,
-                    quantidade: 1,
-                    estoque: item.estoque
+                    uuid: produto.uuid,
+                    nome: produto.titulo || produto.nome,
+                    preco: parseFloat(produto.preco),
+                    quantidade: 1
                 });
             }
 
             this.atualizarCarrinho();
-            this.showToast(`${item.nome} adicionado!`, 'success');
+            this.showToast('Item adicionado ao carrinho', 'success');
         } catch (error) {
+            console.error('Erro ao adicionar ao carrinho:', error);
             this.showToast('Erro ao adicionar item', 'error');
         }
     }
 
     alterarQuantidade(index, delta) {
-        const item = this.carrinho[index];
-        if (!item) return;
+        this.carrinho[index].quantidade += delta;
 
-        const novaQtd = item.quantidade + delta;
-
-        if (novaQtd <= 0) {
-            this.removerDoCarrinho(index);
-        } else if (novaQtd > item.estoque) {
-            this.showToast('Estoque insuficiente', 'warning');
-        } else {
-            item.quantidade = novaQtd;
-            this.atualizarCarrinho();
+        if (this.carrinho[index].quantidade <= 0) {
+            this.carrinho.splice(index, 1);
         }
+
+        this.atualizarCarrinho();
     }
 
     removerDoCarrinho(index) {
@@ -271,9 +272,10 @@ class PDVView {
     limparCarrinho() {
         if (this.carrinho.length === 0) return;
 
-        if (confirm('Deseja limpar todo o carrinho?')) {
+        if (confirm('Limpar todo o carrinho?')) {
             this.carrinho = [];
             this.atualizarCarrinho();
+            this.showToast('Carrinho limpo', 'info');
         }
     }
 
@@ -295,11 +297,10 @@ class PDVView {
             return;
         }
 
-        let subtotal = 0;
+        const subtotal = this.carrinho.reduce((acc, item) => acc + (item.preco * item.quantidade), 0);
 
         cartItems.innerHTML = this.carrinho.map((item, index) => {
             const itemTotal = item.preco * item.quantidade;
-            subtotal += itemTotal;
 
             return `
                 <div class="cart-item" data-index="${index}">

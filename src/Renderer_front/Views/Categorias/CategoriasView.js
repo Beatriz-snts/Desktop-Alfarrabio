@@ -19,21 +19,9 @@ class CategoriasView {
                         <h3>🏷️ Gerenciar Categorias</h3>
                         <button class="btn btn-primary" id="btn-nova-categoria">+ Nova Categoria</button>
                     </div>
-                    <div class="card-body">
-                        <div class="table-container">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Nome</th>
-                                        <th>Descrição</th>
-                                        <th>Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tabela-categorias">
-                                    ${this.renderTabela()}
-                                </tbody>
-                            </table>
+                    <div class="card-body" style="padding: 0;">
+                        <div class="categorias-grid" id="lista-categorias">
+                            ${this.renderGrid()}
                         </div>
                     </div>
                 </div>
@@ -41,34 +29,53 @@ class CategoriasView {
         `;
     }
 
-    renderTabela() {
+    getEmoji(nome) {
+        const n = nome.toLowerCase();
+        if (n.includes('livro')) return '📚';
+        if (n.includes('revista')) return '📰';
+        if (n.includes('papelaria')) return '✏️';
+        if (n.includes('quadrinho') || n.includes('hq') || n.includes('manga')) return '💥';
+        if (n.includes('disco') || n.includes('vinil') || n.includes('cd')) return '💿';
+        if (n.includes('jogo') || n.includes('game')) return '🎮';
+        if (n.includes('acessório')) return '🎒';
+        if (n.includes('colecionável')) return '💎';
+        if (n.includes('didático')) return '🎓';
+        if (n.includes('rara') || n.includes('antigo')) return '🏺';
+        return '🏷️';
+    }
+
+    renderGrid() {
         if (this.categorias.length === 0) {
-            return '<tr><td colspan="4" class="text-center text-muted">Nenhuma categoria cadastrada</td></tr>';
+            return '<div class="empty-state"><h3>🚫 Nenhuma categoria encontrada</h3><p>Cadastre novas categorias para organizar seus itens.</p></div>';
         }
 
-        return this.categorias.map(cat => `
-            <tr>
-                <td>${cat.id}</td>
-                <td><strong>${cat.nome}</strong></td>
-                <td>${cat.descricao || '-'}</td>
-                <td>
-                    <button class="btn btn-sm btn-outline btn-editar" data-id="${cat.id}">✏️</button>
-                    <button class="btn btn-sm btn-danger btn-excluir" data-id="${cat.id}">🗑️</button>
-                </td>
-            </tr>
-        `).join('');
+        return this.categorias.map(cat => {
+            const emoji = this.getEmoji(cat.nome);
+            return `
+                <div class="categoria-card">
+                    <div class="categoria-actions">
+                        <button class="btn-icon-sm btn-editar" title="Editar" data-id="${cat.id}">✏️</button>
+                        <button class="btn-icon-sm btn-danger btn-excluir" title="Excluir" data-id="${cat.id}">🗑️</button>
+                    </div>
+                    <div class="categoria-emoji">${emoji}</div>
+                    <div class="categoria-name">${cat.nome}</div>
+                    <div class="categoria-desc">${cat.descricao || '-'}</div>
+                </div>
+            `;
+        }).join('');
     }
 
     setupEvents() {
         document.getElementById('btn-nova-categoria').addEventListener('click', () => this.abrirFormulario());
 
-        document.getElementById('tabela-categorias').addEventListener('click', async (e) => {
-            if (e.target.classList.contains('btn-editar')) {
-                const id = e.target.dataset.id;
-                await this.abrirFormulario(id);
-            } else if (e.target.classList.contains('btn-excluir')) {
-                const id = e.target.dataset.id;
-                await this.excluir(id);
+        document.getElementById('lista-categorias').addEventListener('click', async (e) => {
+            const btnEditar = e.target.closest('.btn-editar');
+            const btnExcluir = e.target.closest('.btn-excluir');
+
+            if (btnEditar) {
+                await this.abrirFormulario(btnEditar.dataset.id);
+            } else if (btnExcluir) {
+                await this.excluir(btnExcluir.dataset.id);
             }
         });
     }
@@ -142,7 +149,7 @@ class CategoriasView {
             document.getElementById('modal-container').classList.add('hidden');
             const catRes = await window.categorias.listar();
             this.categorias = catRes.data || [];
-            document.getElementById('tabela-categorias').innerHTML = this.renderTabela();
+            document.getElementById('lista-categorias').innerHTML = this.renderGrid();
         } catch (error) {
             alert('Erro ao salvar: ' + error.message);
         }

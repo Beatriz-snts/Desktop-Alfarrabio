@@ -68,7 +68,7 @@ function mostrarLogin() {
 }
 
 // Mostrar layout principal
-async function mostrarLayoutPrincipal(usuario) {
+async function mostrarLayoutPrincipal(usuario, rotaInicial = '/dashboard') {
   usuarioLogado = usuario;
 
   loginScreen.classList.add('hidden');
@@ -89,8 +89,8 @@ async function mostrarLayoutPrincipal(usuario) {
     adminSection.style.display = isAdmin ? 'block' : 'none';
   }
 
-  // Carregar dashboard
-  await navegarPara('/dashboard');
+  // Carregar página inicial ou dashboard
+  await navegarPara(rotaInicial);
 }
 
 // Navegar para rota
@@ -137,13 +137,13 @@ async function init() {
   try {
     const sessao = await window.auth.verificar();
     if (sessao.logado && sessao.usuario) {
-      await mostrarLayoutPrincipal(sessao.usuario);
-
-      // Se tem hash na URL, navegar para lá
+      // Se tem hash na URL, navegar para lá, senão ir para dashboard
+      let rotaInicial = '/dashboard';
       if (window.location.hash && window.location.hash !== '#login') {
-        const rota = window.location.hash.replace('#', '/');
-        await navegarPara(rota);
+        rotaInicial = window.location.hash.replace('#', '/');
       }
+
+      await mostrarLayoutPrincipal(sessao.usuario, rotaInicial);
     } else {
       mostrarLogin();
     }

@@ -115,16 +115,17 @@ class Rotas {
         this.atualizarMenuAtivo(rota);
 
         // Criar instância da view
-        this.viewAtual = new rotaConfig.view();
+        const viewInstance = new rotaConfig.view();
+        this.viewAtual = viewInstance;
         this.rotaAtual = rota;
 
         // Renderizar
-        const html = await this.viewAtual.render();
+        const html = await viewInstance.render();
 
         // Setup de eventos após render (timeout para garantir DOM pronto)
         setTimeout(() => {
-            if (this.viewAtual && this.viewAtual.setupEvents) {
-                this.viewAtual.setupEvents();
+            if (this.viewAtual === viewInstance && viewInstance.setupEvents) {
+                viewInstance.setupEvents();
             }
         }, 50);
 

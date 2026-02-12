@@ -24,21 +24,9 @@ class GenerosView {
                         <h3>📑 Gerenciar Gêneros</h3>
                         <button class="btn btn-primary" id="btn-novo-genero">+ Novo Gênero</button>
                     </div>
-                    <div class="card-body">
-                        <div class="table-container">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Nome</th>
-                                        <th>Categoria</th>
-                                        <th>Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tabela-generos">
-                                    ${this.renderTabela()}
-                                </tbody>
-                            </table>
+                    <div class="card-body" style="padding: 0;">
+                        <div class="generos-grid" id="lista-generos">
+                            ${this.renderGrid()}
                         </div>
                     </div>
                 </div>
@@ -46,23 +34,50 @@ class GenerosView {
         `;
     }
 
-    renderTabela() {
+    getEmoji(nome) {
+        const n = nome.toLowerCase();
+        if (n.includes('fantasia')) return '🧙‍♂️';
+        if (n.includes('romance')) return '💖';
+        if (n.includes('terror') || n.includes('horror')) return '👻';
+        if (n.includes('ficsão') || n.includes('scifi')) return '🚀';
+        if (n.includes('policial') || n.includes('crime')) return '🚓';
+        if (n.includes('biografia')) return '📖';
+        if (n.includes('história')) return '🏰';
+        if (n.includes('acadêmico') || n.includes('didático')) return '🎓';
+        if (n.includes('autoajuda')) return '🧘';
+        if (n.includes('infantil') || n.includes('crianças')) return '🧸';
+        if (n.includes('poesia')) return '📜';
+        if (n.includes('drama')) return '🎭';
+        if (n.includes('comédia') || n.includes('humor')) return '😂';
+        if (n.includes('mistério')) return '🔍';
+        if (n.includes('ação') || n.includes('aventura')) return '🤺';
+        if (n.includes('religião') || n.includes('espiritual')) return '🙏';
+        if (n.includes('culinária')) return '🍳';
+        if (n.includes('esportes')) return '⚽';
+        if (n.includes('tecnologia')) return '💻';
+        if (n.includes('clássico')) return '🏛️';
+        if (n.includes('documentário')) return '📽️';
+        return '📚';
+    }
+
+    renderGrid() {
         if (this.generos.length === 0) {
-            return '<tr><td colspan="4" class="text-center text-muted">Nenhum gênero cadastrado</td></tr>';
+            return '<div class="empty-state"><h3>🚫 Nenhum gênero encontrado</h3><p>Cadastre novos gêneros para organizar seu acervo.</p></div>';
         }
 
         return this.generos.map(gen => {
             const cat = this.categorias.find(c => c.id === gen.categoria_id);
+            const emoji = this.getEmoji(gen.nome);
             return `
-                <tr>
-                    <td>${gen.id}</td>
-                    <td><strong>${gen.nome}</strong></td>
-                    <td><span class="badge badge-info">${cat ? cat.nome : '-'}</span></td>
-                    <td>
-                        <button class="btn btn-sm btn-outline btn-editar" data-id="${gen.id}">✏️</button>
-                        <button class="btn btn-sm btn-danger btn-excluir" data-id="${gen.id}">🗑️</button>
-                    </td>
-                </tr>
+                <div class="genero-card">
+                    <div class="genero-actions">
+                        <button class="btn-icon-sm btn-editar" title="Editar" data-id="${gen.id}">✏️</button>
+                        <button class="btn-icon-sm btn-danger btn-excluir" title="Excluir" data-id="${gen.id}">🗑️</button>
+                    </div>
+                    <div class="genero-emoji">${emoji}</div>
+                    <div class="genero-name">${gen.nome}</div>
+                    <div class="genero-category">${cat ? cat.nome : 'Sem Categoria'}</div>
+                </div>
             `;
         }).join('');
     }
@@ -70,11 +85,14 @@ class GenerosView {
     setupEvents() {
         document.getElementById('btn-novo-genero').addEventListener('click', () => this.abrirFormulario());
 
-        document.getElementById('tabela-generos').addEventListener('click', async (e) => {
-            if (e.target.classList.contains('btn-editar')) {
-                await this.abrirFormulario(e.target.dataset.id);
-            } else if (e.target.classList.contains('btn-excluir')) {
-                await this.excluir(e.target.dataset.id);
+        document.getElementById('lista-generos').addEventListener('click', async (e) => {
+            const btnEditar = e.target.closest('.btn-editar');
+            const btnExcluir = e.target.closest('.btn-excluir');
+
+            if (btnEditar) {
+                await this.abrirFormulario(btnEditar.dataset.id);
+            } else if (btnExcluir) {
+                await this.excluir(btnExcluir.dataset.id);
             }
         });
     }
@@ -151,7 +169,7 @@ class GenerosView {
             document.getElementById('modal-container').classList.add('hidden');
             const genRes = await window.generos.listar();
             this.generos = genRes.data || [];
-            document.getElementById('tabela-generos').innerHTML = this.renderTabela();
+            document.getElementById('lista-generos').innerHTML = this.renderGrid();
         } catch (error) {
             alert('Erro ao salvar: ' + error.message);
         }

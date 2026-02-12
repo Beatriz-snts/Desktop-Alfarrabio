@@ -16,16 +16,18 @@ class AutoresView {
 
         const htmlAutores = this.autores.length > 0
             ? this.autores.map(autor => `
-                <div class="autor-card ${autor.remote_id ? 'sync' : 'local'}" title="${autor.biografia || ''}">
+                <div class="autor-card ${autor.remote_id ? 'sync' : 'local'}" title="${autor.biografia || 'Sem biografia disponível'}">
                     <div class="autor-actions">
-                        <button class="btn-icon-sm" onclick="alert('Editar: ${autor.nome}')">✏️</button>
-                        ${!autor.remote_id ? `<button class="btn-icon-sm" onclick="alert('Excluir: ${autor.nome}')">🗑️</button>` : ''}
+                        <button class="btn-icon-sm" title="Editar" onclick="alert('Editar: ${autor.nome}')">✏️</button>
+                        ${!autor.remote_id ? `<button class="btn-icon-sm" title="Excluir" onclick="alert('Excluir: ${autor.nome}')">🗑️</button>` : ''}
                     </div>
-                    <div class="autor-icon">👤</div>
                     <div class="autor-name">${autor.nome}</div>
+                    <div class="text-muted" style="font-size: 0.75rem;">
+                        ${autor.remote_id ? '🌟 Sincronizado' : '📝 Local'}
+                    </div>
                 </div>
             `).join('')
-            : '<div class="col-12 text-center text-muted p-4">Nenhum autor encontrado</div>';
+            : '<div class="empty-state"><h3>🚫 Nenhum autor encontrado</h3><p>Tente buscar por outro nome ou importe via sincronização.</p></div>';
 
         return `
             <div class="autores-page">
