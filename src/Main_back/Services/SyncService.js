@@ -173,7 +173,14 @@ class SyncService {
 
                 for (const item of itens) {
                     // Buscar UUID local se já existir pelo remote_id para evitar duplicatas
-                    const itemExistente = db.prepare('SELECT uuid, imagem_path FROM itens WHERE remote_id = ?').get(item.id_item);
+                    const itemExistente = db.prepare('SELECT uuid, imagem_path, sync_status FROM itens WHERE remote_id = ?').get(item.id_item);
+
+                    // Se o item existe localmente e tem alterações pendentes (sync_status = 0), não sobrescrever
+                    if (itemExistente && itemExistente.sync_status === 0) {
+                        console.log(`⚠️ Item ${item.id_item} tem alterações locais pendentes. Pulando importação.`);
+                        continue;
+                    }
+
                     const uuid = itemExistente ? itemExistente.uuid : this.gerarUUID();
 
                     // Lógica de download de imagem
@@ -291,6 +298,53 @@ class SyncService {
         }
     }
 
+    async exportarItens() {
+        try {
+            // Buscar itens modificados localmente
+            const itens = db.prepare('SELECT * FROM itens WHERE sync_status = 0').all();
+            let exportados = 0;
+
+            for (const item of itens) {
+                // Montar payload conforme FIELD_MAPPING (Inverso: Local -> Remote)
+                // Nota: O endpoint de categorias/gêneros deve ignorar IDs locais se não existirem no remoto
+                const payload = {
+                    id_item: item.remote_id || null,
+                    titulo: item.nome,
+                    preco: item.preco,
+                    descricao: item.descricao,
+                    isbn: item.isbn,
+                    editora: item.editora,
+                    estoque: item.estoque,
+                    id_categoria: item.categoria_id,
+                    id_genero: item.genero_id,
+                    autores: item.autor ? item.autor.split(',').map(a => a.trim()) : []
+                };
+
+                const response = await fetch(`${SyncConfig.API_BASE_URL}${SyncConfig.ENDPOINTS.itens}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    // Se for um item novo, salvar o remote_id retornado
+                    if (!item.remote_id && result.id) {
+                        db.prepare('UPDATE itens SET remote_id = ?, sync_status = 1 WHERE uuid = ?').run(result.id, item.uuid);
+                    } else {
+                        db.prepare('UPDATE itens SET sync_status = 1 WHERE uuid = ?').run(item.uuid);
+                    }
+                    exportados++;
+                }
+            }
+
+            return { success: true, exportados };
+        } catch (error) {
+            console.error('Erro ao exportar itens:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
     // ==================== AUXILIARES DE IMAGEM ====================
 
     salvarBase64ComoArquivo(base64Data, fileName) {
@@ -377,8 +431,9 @@ class SyncService {
             resultados.itens = await this.importarItens();
             resultados.avaliacoes = await this.importarAvaliacoes();
 
-            // Exportar vendas locais
+            // Exportar dados locais
             resultados.vendas = await this.exportarVendas();
+            resultados.exportItens = await this.exportarItens();
 
             // Atualizar timestamp
             this.ultimoSync = new Date().toISOString();

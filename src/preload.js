@@ -34,7 +34,8 @@ contextBridge.exposeInMainWorld('itens', {
     cadastrar: (item) => ipcRenderer.invoke('itens:cadastrar', item),
     atualizar: (item) => ipcRenderer.invoke('itens:atualizar', item),
     remover: (uuid) => ipcRenderer.invoke('itens:remover', uuid),
-    estoqueBaixo: () => ipcRenderer.invoke('itens:estoqueBaixo')
+    estoqueBaixo: () => ipcRenderer.invoke('itens:estoqueBaixo'),
+    selecionarImagem: () => ipcRenderer.invoke('itens:selecionarImagem')
 });
 
 // API de categorias

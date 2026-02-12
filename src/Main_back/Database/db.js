@@ -196,6 +196,14 @@ export function initDatabase() {
     } catch (e) { /* coluna já existe */ }
   });
 
+  // LIMPEZA: Remover protocolos redundantes (media://) de itens que foram salvos incorretamente
+  try {
+    db.exec(`UPDATE itens SET imagem_path = REPLACE(REPLACE(imagem_path, 'media:///', ''), 'media://', '') WHERE imagem_path LIKE 'media://%'`);
+    console.log('🧹 Limpeza de protocolos de imagem concluída');
+  } catch (e) {
+    console.error('❌ Erro ao limpar protocolos de imagem:', e.message);
+  }
+
   // LIMPEZA DE DUPLICADOS (Baseado no remote_id)
   try {
     console.log('🧹 Iniciando limpeza de itens duplicados...');

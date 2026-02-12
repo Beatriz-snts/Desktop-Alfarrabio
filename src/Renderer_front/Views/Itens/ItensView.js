@@ -161,6 +161,9 @@ class ItensView {
                 <div class="modal-body">
                     <form id="form-item">
                         <input type="hidden" id="item-uuid" value="${uuid || ''}">
+                        <input type="hidden" id="item-imagem-path" value="${item.imagem_path || ''}">
+                        <input type="hidden" id="item-preco-promocional" value="${item.preco_promocional || ''}">
+                        <input type="hidden" id="item-estoque-minimo" value="${item.estoque_minimo || ''}">
                         
                         <!-- Preview da Capa -->
                         <div class="form-row" style="margin-bottom: 1.5rem; display: flex; justify-content: center;">
@@ -168,8 +171,10 @@ class ItensView {
                                 <div class="item-thumb-container" style="width: 120px; height: 160px; margin: 0 auto 0.5rem;">
                                     ${item.imagem_path
                 ? `<img src="${item.imagem_path}" class="item-thumb" id="preview-img">`
-                : '<div class="item-thumb-placeholder" style="font-size: 3rem;">📖</div>'}
+                : '<div class="item-thumb-placeholder" style="font-size: 3rem;" id="preview-placeholder">📖</div>'}
                                 </div>
+                                <button type="button" class="btn btn-sm btn-outline" id="btn-alterar-foto" style="margin-bottom: 0.5rem;">📷 Alterar Foto</button>
+                                <br>
                                 <small class="text-muted">Capa do Livro</small>
                             </div>
                         </div>
@@ -244,6 +249,29 @@ class ItensView {
         document.getElementById('modal-close').addEventListener('click', () => modal.classList.add('hidden'));
         document.getElementById('btn-cancelar').addEventListener('click', () => modal.classList.add('hidden'));
         document.getElementById('btn-salvar').addEventListener('click', () => this.salvarItem());
+
+        // Alterar Foto
+        document.getElementById('btn-alterar-foto').addEventListener('click', async () => {
+            console.log('Botão Alterar Foto clicado');
+            try {
+                const newPath = await window.itens.selecionarImagem();
+                console.log('Caminho retornado:', newPath);
+                if (newPath) {
+                    // Atualizar hidden input
+                    document.getElementById('item-imagem-path').value = newPath;
+
+                    // Atualizar preview
+                    const container = document.querySelector('.item-thumb-container');
+                    // O renderer usa o protocolo media:/// para exibir arquivos locais
+                    const normalizedPath = `media:///${newPath.replace(/\\/g, '/')}`;
+                    console.log('Path normalizado para preview:', normalizedPath);
+                    container.innerHTML = `<img src="${normalizedPath}" class="item-thumb" id="preview-img">`;
+                }
+            } catch (error) {
+                console.error('Erro ao selecionar imagem:', error);
+                alert('Erro ao selecionar imagem: ' + error.message);
+            }
+        });
     }
 
     async salvarItem() {
@@ -259,7 +287,10 @@ class ItensView {
             categoria_id: document.getElementById('item-categoria').value || null,
             genero_id: document.getElementById('item-genero').value || null,
             preco: parseFloat(document.getElementById('item-preco').value),
-            estoque: parseInt(document.getElementById('item-estoque').value)
+            estoque: parseInt(document.getElementById('item-estoque').value),
+            imagem_path: document.getElementById('item-imagem-path').value || null,
+            preco_promocional: document.getElementById('item-preco-promocional').value ? parseFloat(document.getElementById('item-preco-promocional').value) : null,
+            estoque_minimo: document.getElementById('item-estoque-minimo').value ? parseInt(document.getElementById('item-estoque-minimo').value) : null
         };
 
         if (!dados.nome || !dados.preco) {

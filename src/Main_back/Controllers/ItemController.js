@@ -18,10 +18,22 @@ class ItemController {
 
     normalizarItem(item) {
         if (item.imagem_path) {
+            // Se já tem o protocolo, não adiciona de novo
+            if (item.imagem_path.startsWith('media://')) {
+                return item;
+            }
             // Converter backslashes para slashes
             let cleanPath = item.imagem_path.replace(/\\/g, '/');
             // Garantir que começa com media:/// (3 barras para caminhos absolutos)
             item.imagem_path = `media:///${cleanPath}`;
+        }
+        return item;
+    }
+
+    sanitizarItem(item) {
+        if (item.imagem_path) {
+            // Remove o protocolo media:/// ou media:// se existir
+            item.imagem_path = item.imagem_path.replace(/^media:\/\/+/i, '');
         }
         return item;
     }
@@ -93,7 +105,8 @@ class ItemController {
             if (!item.nome || !item.preco) {
                 return { success: false, error: 'Nome e preço são obrigatórios' };
             }
-            const resultado = this.itens.adicionar(item);
+            const itemSanitizado = this.sanitizarItem({ ...item });
+            const resultado = this.itens.adicionar(itemSanitizado);
             return { success: true, ...resultado };
         } catch (error) {
             return { success: false, error: error.message };
@@ -105,7 +118,8 @@ class ItemController {
             if (!item.uuid) {
                 return { success: false, error: 'UUID é obrigatório' };
             }
-            const resultado = this.itens.atualizar(item);
+            const itemSanitizado = this.sanitizarItem({ ...item });
+            const resultado = this.itens.atualizar(itemSanitizado);
             return { success: resultado, message: resultado ? 'Atualizado' : 'Nenhuma alteração' };
         } catch (error) {
             return { success: false, error: error.message };
