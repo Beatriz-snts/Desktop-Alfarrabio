@@ -233,6 +233,32 @@ export function initDatabase() {
         GROUP BY remote_id
       ) AND remote_id IS NOT NULL;
     `);
+    db.exec(`
+      DELETE FROM autores 
+      WHERE id NOT IN (
+        SELECT MIN(id) 
+        FROM autores 
+        GROUP BY remote_id
+      ) AND remote_id IS NOT NULL;
+    `);
+
+
+
+    // DEDUPLICAÇÃO POR NOME (Prioriza o que tem remote_id)
+    // Remove genêros locais (sem remote_id) que conflitam com gêneros remotos (com mesmo nome)
+    db.exec(`
+      DELETE FROM generos 
+      WHERE remote_id IS NULL 
+      AND nome IN(SELECT nome FROM generos WHERE remote_id IS NOT NULL);
+    `);
+
+    // Remove categorias locais (sem remote_id) que conflitam com categorias remotas (com mesmo nome)
+    db.exec(`
+      DELETE FROM categorias 
+      WHERE remote_id IS NULL 
+      AND nome IN(SELECT nome FROM categorias WHERE remote_id IS NOT NULL);
+    `);
+
     console.log('✅ Limpeza concluída');
   } catch (e) {
     console.error('❌ Erro na limpeza de duplicados:', e.message);
@@ -243,6 +269,7 @@ export function initDatabase() {
     db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_itens_remote_id ON itens(remote_id) WHERE remote_id IS NOT NULL`);
     db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_categorias_remote_id ON categorias(remote_id) WHERE remote_id IS NOT NULL`);
     db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_generos_remote_id ON generos(remote_id) WHERE remote_id IS NOT NULL`);
+    db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_autores_remote_id ON autores(remote_id) WHERE remote_id IS NOT NULL`);
   } catch (e) {
     console.error('❌ Erro ao criar índices únicos:', e.message);
   }
@@ -254,9 +281,9 @@ export function initDatabase() {
     const uuid = crypto.randomUUID();
 
     db.prepare(`
-      INSERT INTO usuarios (uuid, nome, email, senha, role, status) 
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(uuid, 'Administrador', 'admin@sebo.com', senhaHash, 'admin', 'ativo');
+      INSERT INTO usuarios(uuid, nome, email, senha, role, status)
+    VALUES(?, ?, ?, ?, ?, ?)
+      `).run(uuid, 'Administrador', 'admin@sebo.com', senhaHash, 'admin', 'ativo');
 
     console.log('✅ Usuário admin criado: admin@sebo.com / admin123');
   }

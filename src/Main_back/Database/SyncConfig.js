@@ -3,7 +3,9 @@
 
 export const SyncConfig = {
     // URL base da API do site (PHP backend)
-    API_BASE_URL: 'http://localhost:2000/backend/index.php/api',
+    // URL base da API do site (PHP backend)
+    // API_BASE_URL: 'http://localhost:2000/backend/index.php/api',
+    API_BASE_URL: 'https://seboalfarrabio.com.br/backend/api',
 
     // Endpoints da API
     ENDPOINTS: {

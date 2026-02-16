@@ -20,7 +20,10 @@ class SyncService {
         try {
             const response = await fetch(`${SyncConfig.API_BASE_URL}${SyncConfig.ENDPOINTS.categorias}`, {
                 method: 'GET',
-                headers: { 'Accept': 'application/json' },
+                headers: {
+                    'Accept': 'application/json',
+                    'User-Agent': 'SeboAlfarrabioPDV/1.0'
+                },
                 signal: AbortSignal.timeout(SyncConfig.REQUEST_TIMEOUT)
             });
 
@@ -39,7 +42,12 @@ class SyncService {
 
     async importarCategorias() {
         try {
-            const response = await fetch(`${SyncConfig.API_BASE_URL}${SyncConfig.ENDPOINTS.categorias}`);
+            const response = await fetch(`${SyncConfig.API_BASE_URL}${SyncConfig.ENDPOINTS.categorias}`, {
+                headers: {
+                    'User-Agent': 'SeboAlfarrabioPDV/1.0',
+                    'Accept': 'application/json'
+                }
+            });
             const result = await response.json();
 
             const categorias = result.data || result;
@@ -67,7 +75,12 @@ class SyncService {
 
     async importarGeneros() {
         try {
-            const response = await fetch(`${SyncConfig.API_BASE_URL}${SyncConfig.ENDPOINTS.generos}`);
+            const response = await fetch(`${SyncConfig.API_BASE_URL}${SyncConfig.ENDPOINTS.generos}`, {
+                headers: {
+                    'User-Agent': 'SeboAlfarrabioPDV/1.0',
+                    'Accept': 'application/json'
+                }
+            });
             const result = await response.json();
 
             const generos = result.data || result;
@@ -91,7 +104,12 @@ class SyncService {
 
     async importarAvaliacoes() {
         try {
-            const response = await fetch(`${SyncConfig.API_BASE_URL}${SyncConfig.ENDPOINTS.avaliacoes}`);
+            const response = await fetch(`${SyncConfig.API_BASE_URL}${SyncConfig.ENDPOINTS.avaliacoes}`, {
+                headers: {
+                    'User-Agent': 'SeboAlfarrabioPDV/1.0',
+                    'Accept': 'application/json'
+                }
+            });
             const result = await response.json();
 
             const avaliacoes = result.avaliacoes || [];
@@ -125,7 +143,12 @@ class SyncService {
 
     async importarAutores() {
         try {
-            const response = await fetch(`${SyncConfig.API_BASE_URL}${SyncConfig.ENDPOINTS.autores}`);
+            const response = await fetch(`${SyncConfig.API_BASE_URL}${SyncConfig.ENDPOINTS.autores}`, {
+                headers: {
+                    'User-Agent': 'SeboAlfarrabioPDV/1.0',
+                    'Accept': 'application/json'
+                }
+            });
             const result = await response.json();
 
             const autores = result.data || result;
@@ -161,7 +184,12 @@ class SyncService {
             `);
 
             while (temMais) {
-                const response = await fetch(`${SyncConfig.API_BASE_URL}${SyncConfig.ENDPOINTS.itens}?pagina=${pagina}&por_pagina=50`);
+                const response = await fetch(`${SyncConfig.API_BASE_URL}${SyncConfig.ENDPOINTS.itens}?pagina=${pagina}&por_pagina=50`, {
+                    headers: {
+                        'User-Agent': 'SeboAlfarrabioPDV/1.0',
+                        'Accept': 'application/json'
+                    }
+                });
                 const result = await response.json();
 
                 const itens = result.data || [];
@@ -281,7 +309,10 @@ class SyncService {
                 // Enviar para API
                 const response = await fetch(`${SyncConfig.API_BASE_URL}${SyncConfig.ENDPOINTS.vendas}`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'User-Agent': 'SeboAlfarrabioPDV/1.0'
+                    },
                     body: JSON.stringify(payload)
                 });
 
@@ -320,9 +351,33 @@ class SyncService {
                     autores: item.autor ? item.autor.split(',').map(a => a.trim()) : []
                 };
 
+                // Adicionar imagem em Base64 se for um arquivo local
+                if (item.imagem_path && item.imagem_path.startsWith('media:///')) {
+                    try {
+                        let localPath = item.imagem_path.replace('media:///', '');
+                        // Normaliza para o SO atual (C:\...)
+                        localPath = path.resolve(localPath);
+
+                        if (fs.existsSync(localPath)) {
+                            const fileBuffer = fs.readFileSync(localPath);
+                            const base64Image = fileBuffer.toString('base64');
+                            const ext = path.extname(localPath).toLowerCase().replace('.', '') || 'jpg';
+                            const mime = ext === 'png' ? 'png' : (ext === 'webp' ? 'webp' : 'jpeg');
+
+                            payload.imagem_base64 = `data:image/${mime};base64,${base64Image}`;
+                            payload.foto_item = path.basename(localPath);
+                        }
+                    } catch (err) {
+                        console.error(`Erro ao converter imagem do item ${item.uuid} para Base64:`, err.message);
+                    }
+                }
+
                 const response = await fetch(`${SyncConfig.API_BASE_URL}${SyncConfig.ENDPOINTS.itens}`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'User-Agent': 'SeboAlfarrabioPDV/1.0'
+                    },
                     body: JSON.stringify(payload)
                 });
 
@@ -392,7 +447,11 @@ class SyncService {
                 return { success: true, path: localPath };
             }
 
-            const response = await fetch(url);
+            const response = await fetch(url, {
+                headers: {
+                    'User-Agent': 'SeboAlfarrabioPDV/1.0'
+                }
+            });
             if (!response.ok) throw new Error(`Falha ao baixar imagem: ${response.status}`);
 
             const arrayBuffer = await response.arrayBuffer();
