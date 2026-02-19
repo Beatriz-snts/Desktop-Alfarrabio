@@ -18,6 +18,10 @@ class ItemController {
 
     normalizarItem(item) {
         if (item.imagem_path) {
+            // Se já é base64, não precisa do protocolo media://
+            if (item.imagem_path.startsWith('data:image/')) {
+                return item;
+            }
             // Se já tem o protocolo, não adiciona de novo
             if (item.imagem_path.startsWith('media://')) {
                 return item;
@@ -32,6 +36,10 @@ class ItemController {
 
     sanitizarItem(item) {
         if (item.imagem_path) {
+            // Se é base64, não remove nada
+            if (item.imagem_path.startsWith('data:image/')) {
+                return item;
+            }
             // Remove o protocolo media:/// ou media:// se existir
             item.imagem_path = item.imagem_path.replace(/^media:\/\/+/i, '');
         }

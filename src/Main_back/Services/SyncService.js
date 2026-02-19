@@ -351,24 +351,31 @@ class SyncService {
                     autores: item.autor ? item.autor.split(',').map(a => a.trim()) : []
                 };
 
-                // Adicionar imagem em Base64 se for um arquivo local
-                if (item.imagem_path && item.imagem_path.startsWith('media:///')) {
-                    try {
-                        let localPath = item.imagem_path.replace('media:///', '');
-                        // Normaliza para o SO atual (C:\...)
-                        localPath = path.resolve(localPath);
+                // Adicionar imagem: se já é Base64, enviar diretamente; se é caminho de arquivo, converter
+                if (item.imagem_path) {
+                    if (item.imagem_path.startsWith('data:image/')) {
+                        // Já é base64 data URI — enviar diretamente
+                        payload.imagem_base64 = item.imagem_path;
+                        payload.foto_item = `item_${item.uuid}.jpg`;
+                    } else if (item.imagem_path.startsWith('media:///')) {
+                        // Caminho de arquivo legado — converter para base64
+                        try {
+                            let localPath = item.imagem_path.replace('media:///', '');
+                            // Normaliza para o SO atual (C:\...)
+                            localPath = path.resolve(localPath);
 
-                        if (fs.existsSync(localPath)) {
-                            const fileBuffer = fs.readFileSync(localPath);
-                            const base64Image = fileBuffer.toString('base64');
-                            const ext = path.extname(localPath).toLowerCase().replace('.', '') || 'jpg';
-                            const mime = ext === 'png' ? 'png' : (ext === 'webp' ? 'webp' : 'jpeg');
+                            if (fs.existsSync(localPath)) {
+                                const fileBuffer = fs.readFileSync(localPath);
+                                const base64Image = fileBuffer.toString('base64');
+                                const ext = path.extname(localPath).toLowerCase().replace('.', '') || 'jpg';
+                                const mime = ext === 'png' ? 'png' : (ext === 'webp' ? 'webp' : 'jpeg');
 
-                            payload.imagem_base64 = `data:image/${mime};base64,${base64Image}`;
-                            payload.foto_item = path.basename(localPath);
+                                payload.imagem_base64 = `data:image/${mime};base64,${base64Image}`;
+                                payload.foto_item = path.basename(localPath);
+                            }
+                        } catch (err) {
+                            console.error(`Erro ao converter imagem do item ${item.uuid} para Base64:`, err.message);
                         }
-                    } catch (err) {
-                        console.error(`Erro ao converter imagem do item ${item.uuid} para Base64:`, err.message);
                     }
                 }
 

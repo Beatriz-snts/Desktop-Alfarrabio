@@ -254,18 +254,15 @@ class ItensView {
         document.getElementById('btn-alterar-foto').addEventListener('click', async () => {
             console.log('Botão Alterar Foto clicado');
             try {
-                const newPath = await window.itens.selecionarImagem();
-                console.log('Caminho retornado:', newPath);
-                if (newPath) {
-                    // Atualizar hidden input
-                    document.getElementById('item-imagem-path').value = newPath;
+                const base64Image = await window.itens.selecionarImagem();
+                console.log('Imagem base64 retornada:', base64Image ? `${base64Image.substring(0, 50)}...` : null);
+                if (base64Image) {
+                    // Atualizar hidden input com a string base64
+                    document.getElementById('item-imagem-path').value = base64Image;
 
-                    // Atualizar preview
+                    // Atualizar preview usando a data URI diretamente
                     const container = document.querySelector('.item-thumb-container');
-                    // O renderer usa o protocolo media:/// para exibir arquivos locais
-                    const normalizedPath = `media:///${newPath.replace(/\\/g, '/')}`;
-                    console.log('Path normalizado para preview:', normalizedPath);
-                    container.innerHTML = `<img src="${normalizedPath}" class="item-thumb" id="preview-img">`;
+                    container.innerHTML = `<img src="${base64Image}" class="item-thumb" id="preview-img">`;
                 }
             } catch (error) {
                 console.error('Erro ao selecionar imagem:', error);
