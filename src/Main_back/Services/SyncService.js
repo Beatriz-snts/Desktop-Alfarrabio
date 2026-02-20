@@ -356,8 +356,14 @@ class SyncService {
                         payload.imagem_base64 = item.imagem_path;
                     } else if (item.imagem_path.startsWith('media://')) {
                         try {
-                            const localPath = item.imagem_path.replace(/^media:\/\/+/i, '');
-                            if (fs.existsSync(localPath)) {
+                            let localPath = item.imagem_path.replace(/^media:\/\/+/i, '');
+                            // Normalizar caminhos de volta (remover barra extra se necessário)
+                            if (localPath.startsWith('/') && localPath.match(/^\/[a-zA-Z]:/)) {
+                                localPath = localPath.substring(1);
+                            }
+                            localPath = path.resolve(localPath);
+
+                            if (typeof localPath === 'string' && localPath && fs.existsSync(localPath)) {
                                 const fileBuffer = fs.readFileSync(localPath);
                                 const base64Image = fileBuffer.toString('base64');
                                 const ext = path.extname(localPath).toLowerCase().replace('.', '') || 'jpg';
