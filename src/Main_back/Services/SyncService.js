@@ -337,44 +337,55 @@ class SyncService {
             let exportados = 0;
 
             for (const item of itens) {
-                // Montar payload conforme FIELD_MAPPING (Inverso: Local -> Remote)
-                // Nota: O endpoint de categorias/gêneros deve ignorar IDs locais se não existirem no remoto
+                // Montar payload conforme esperado pelo PublicApiController do backend
                 const payload = {
                     id_item: item.remote_id || null,
-                    titulo: item.nome,
-                    preco: item.preco,
+                    titulo_item: item.nome,
+                    preco_item: item.preco,
                     descricao: item.descricao,
                     isbn: item.isbn,
-                    editora: item.editora,
+                    editora_gravadora: item.editora,
                     estoque: item.estoque,
                     id_categoria: item.categoria_id,
                     id_genero: item.genero_id,
-                    autores: item.autor ? item.autor.split(',').map(a => a.trim()) : []
+                    autores_ids: item.autor_ids ? JSON.parse(item.autor_ids) : []
                 };
 
-                // Adicionar imagem em Base64 se for um arquivo local
-                if (item.imagem_path && item.imagem_path.startsWith('media:///')) {
-                    try {
-                        let localPath = item.imagem_path.replace('media:///', '');
-                        // Normaliza para o SO atual (C:\...)
-                        localPath = path.resolve(localPath);
+                // Adicionar imagem
+                if (item.imagem_path) {
+                    if (item.imagem_path.startsWith('data:image/')) {
+                        payload.imagem_base64 = item.imagem_path;
+                    } else if (item.imagem_path.startsWith('media://')) {
+                        try {
+                            let localPath = item.imagem_path.replace(/^media:\/\/+/i, '');
+                            // Normalizar caminhos de volta (remover barra extra se necessário)
+                            if (localPath.startsWith('/') && localPath.match(/^\/[a-zA-Z]:/)) {
+                                localPath = localPath.substring(1);
+                            }
+                            localPath = path.resolve(localPath);
 
-                        if (fs.existsSync(localPath)) {
-                            const fileBuffer = fs.readFileSync(localPath);
-                            const base64Image = fileBuffer.toString('base64');
-                            const ext = path.extname(localPath).toLowerCase().replace('.', '') || 'jpg';
-                            const mime = ext === 'png' ? 'png' : (ext === 'webp' ? 'webp' : 'jpeg');
-
-                            payload.imagem_base64 = `data:image/${mime};base64,${base64Image}`;
-                            payload.foto_item = path.basename(localPath);
+                            if (typeof localPath === 'string' && localPath && fs.existsSync(localPath)) {
+                                const fileBuffer = fs.readFileSync(localPath);
+                                const base64Image = fileBuffer.toString('base64');
+                                const ext = path.extname(localPath).toLowerCase().replace('.', '') || 'jpg';
+                                const mime = ext === 'png' ? 'png' : (ext === 'webp' ? 'webp' : 'jpeg');
+                                payload.imagem_base64 = `data:image/${mime};base64,${base64Image}`;
+                            }
+                        } catch (err) {
+                            console.error(`Erro ao converter imagem do item ${item.uuid}:`, err.message);
                         }
-                    } catch (err) {
-                        console.error(`Erro ao converter imagem do item ${item.uuid} para Base64:`, err.message);
                     }
                 }
 
+<<<<<<< HEAD
                 const url = `${SyncConfig.API_BASE_URL.replace(/\/$/, '')}${SyncConfig.ENDPOINTS.itens}`;
                 const response = await fetch(url, {
+=======
+                // Escolher endpoint: se tem remote_id é atualização, senão é novo
+                const endpoint = item.remote_id ? SyncConfig.ENDPOINTS.item_atualizar : SyncConfig.ENDPOINTS.item_salvar;
+
+                const response = await fetch(`${SyncConfig.API_BASE_URL}${endpoint}`, {
+>>>>>>> e78b913e2a0e9cda60304d112d90d4a32e110f88
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -385,13 +396,15 @@ class SyncService {
 
                 if (response.ok) {
                     const result = await response.json();
-                    // Se for um item novo, salvar o remote_id retornado
-                    if (!item.remote_id && result.id) {
-                        db.prepare('UPDATE itens SET remote_id = ?, sync_status = 1 WHERE uuid = ?').run(result.id, item.uuid);
-                    } else {
-                        db.prepare('UPDATE itens SET sync_status = 1 WHERE uuid = ?').run(item.uuid);
+                    if (result.status === 'success') {
+                        const remoteId = result.id_item || result.id;
+                        if (!item.remote_id && remoteId) {
+                            db.prepare('UPDATE itens SET remote_id = ?, sync_status = 1 WHERE uuid = ?').run(remoteId, item.uuid);
+                        } else {
+                            db.prepare('UPDATE itens SET sync_status = 1 WHERE uuid = ?').run(item.uuid);
+                        }
+                        exportados++;
                     }
-                    exportados++;
                 }
             }
 

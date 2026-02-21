@@ -213,17 +213,18 @@ ipcMain.handle('itens:selecionarImagem', async () => {
   }
 
   const sourcePath = result.filePaths[0];
-  const fileName = `item_${Date.now()}${path.extname(sourcePath)}`;
-  const uploadDir = path.join(app.getPath('userData'), 'uploads', 'itens');
 
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-  }
+  // Ler o arquivo e converter para base64
+  const fileBuffer = fs.readFileSync(sourcePath);
+  const base64Data = fileBuffer.toString('base64');
 
-  const destPath = path.join(uploadDir, fileName);
-  fs.copyFileSync(sourcePath, destPath);
+  // Detectar MIME type pela extensão
+  const ext = path.extname(sourcePath).toLowerCase().replace('.', '');
+  const mimeTypes = { jpg: 'jpeg', jpeg: 'jpeg', png: 'png', webp: 'webp' };
+  const mime = mimeTypes[ext] || 'jpeg';
 
-  return destPath;
+  // Retornar como data URI
+  return `data:image/${mime};base64,${base64Data}`;
 });
 
 // =========================================

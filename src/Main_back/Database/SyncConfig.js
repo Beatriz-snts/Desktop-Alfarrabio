@@ -10,6 +10,8 @@ export const SyncConfig = {
     // Endpoints da API
     ENDPOINTS: {
         itens: '/item',
+        item_salvar: '/item/salvar',
+        item_atualizar: '/item/atualizar',
         categorias: '/categorias',
         generos: '/generos',
         avaliacoes: '/buscarpedidos',
