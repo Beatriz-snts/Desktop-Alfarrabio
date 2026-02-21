@@ -14,7 +14,7 @@ class Categorias {
     }
 
     adicionar(categoria) {
-        const stmt = db.prepare(`INSERT INTO categorias (nome, descricao) VALUES (?, ?)`);
+        const stmt = db.prepare(`INSERT INTO categorias (nome, descricao, sync_status) VALUES (?, ?, 0)`);
         const info = stmt.run(categoria.nome, categoria.descricao || null);
         return { id: info.lastInsertRowid };
     }

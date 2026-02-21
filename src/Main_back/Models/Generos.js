@@ -27,7 +27,7 @@ class Generos {
     }
 
     adicionar(genero) {
-        const stmt = db.prepare(`INSERT INTO generos (nome, categoria_id) VALUES (?, ?)`);
+        const stmt = db.prepare(`INSERT INTO generos (nome, categoria_id, sync_status) VALUES (?, ?, 0)`);
         const info = stmt.run(genero.nome, genero.categoria_id || null);
         return { id: info.lastInsertRowid };
     }

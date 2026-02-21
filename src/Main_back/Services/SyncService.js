@@ -307,7 +307,8 @@ class SyncService {
                 };
 
                 // Enviar para API
-                const response = await fetch(`${SyncConfig.API_BASE_URL}${SyncConfig.ENDPOINTS.vendas}`, {
+                const url = `${SyncConfig.API_BASE_URL.replace(/\/$/, '')}${SyncConfig.ENDPOINTS.vendas}`;
+                const response = await fetch(url, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -372,7 +373,8 @@ class SyncService {
                     }
                 }
 
-                const response = await fetch(`${SyncConfig.API_BASE_URL}${SyncConfig.ENDPOINTS.itens}`, {
+                const url = `${SyncConfig.API_BASE_URL.replace(/\/$/, '')}${SyncConfig.ENDPOINTS.itens}`;
+                const response = await fetch(url, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -396,6 +398,176 @@ class SyncService {
             return { success: true, exportados };
         } catch (error) {
             console.error('Erro ao exportar itens:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    async exportarCategorias() {
+        try {
+            // Buscar categorias criadas localmente (sem remote_id, pendenters de sync)
+            const categorias = db.prepare(`
+                SELECT * FROM categorias
+                WHERE sync_status = 0 AND remote_id IS NULL AND excluido_em IS NULL
+            `).all();
+
+            let exportados = 0;
+
+            for (const cat of categorias) {
+                const payload = {
+                    nome_categoria: cat.nome,
+                    descricao: cat.descricao || null
+                };
+
+                try {
+                    const url = `${SyncConfig.API_BASE_URL.replace(/\/$/, '')}${SyncConfig.ENDPOINTS.categorias}`;
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'User-Agent': 'SeboAlfarrabioPDV/1.0'
+                        },
+                        body: JSON.stringify(payload),
+                        signal: AbortSignal.timeout(SyncConfig.REQUEST_TIMEOUT)
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        const remoteId = result.id || result.id_categoria || null;
+                        if (remoteId) {
+                            db.prepare('UPDATE categorias SET remote_id = ?, sync_status = 1, atualizado_em = CURRENT_TIMESTAMP WHERE id = ?')
+                                .run(remoteId, cat.id);
+                        } else {
+                            db.prepare('UPDATE categorias SET sync_status = 1, atualizado_em = CURRENT_TIMESTAMP WHERE id = ?')
+                                .run(cat.id);
+                        }
+                        exportados++;
+                        console.log(`✅ Categoria exportada: ${cat.nome} (remote_id: ${remoteId})`);
+                    } else {
+                        const errText = await response.text();
+                        console.warn(`⚠️ Falha ao exportar categoria "${cat.nome}": ${response.status} - ${errText}`);
+                    }
+                } catch (err) {
+                    console.error(`❌ Erro ao exportar categoria "${cat.nome}": ${err.message}`);
+                }
+            }
+
+            return { success: true, exportados };
+        } catch (error) {
+            console.error('Erro em exportarCategorias:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    async exportarGeneros() {
+        try {
+            // Buscar gêneros criados localmente (sem remote_id, pendentes de sync)
+            const generos = db.prepare(`
+                SELECT g.*, c.remote_id as categoria_remote_id
+                FROM generos g
+                LEFT JOIN categorias c ON g.categoria_id = c.id
+                WHERE g.sync_status = 0 AND g.remote_id IS NULL AND g.excluido_em IS NULL
+            `).all();
+
+            let exportados = 0;
+
+            for (const gen of generos) {
+                const payload = {
+                    nome_generos: gen.nome,
+                    id_categoria: gen.categoria_remote_id || null
+                };
+
+                try {
+                    const url = `${SyncConfig.API_BASE_URL.replace(/\/$/, '')}${SyncConfig.ENDPOINTS.generos}`;
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'User-Agent': 'SeboAlfarrabioPDV/1.0'
+                        },
+                        body: JSON.stringify(payload),
+                        signal: AbortSignal.timeout(SyncConfig.REQUEST_TIMEOUT)
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        const remoteId = result.id || result.id_generos || null;
+                        if (remoteId) {
+                            db.prepare('UPDATE generos SET remote_id = ?, sync_status = 1, atualizado_em = CURRENT_TIMESTAMP WHERE id = ?')
+                                .run(remoteId, gen.id);
+                        } else {
+                            db.prepare('UPDATE generos SET sync_status = 1, atualizado_em = CURRENT_TIMESTAMP WHERE id = ?')
+                                .run(gen.id);
+                        }
+                        exportados++;
+                        console.log(`✅ Gênero exportado: ${gen.nome} (remote_id: ${remoteId})`);
+                    } else {
+                        const errText = await response.text();
+                        console.warn(`⚠️ Falha ao exportar gênero "${gen.nome}": ${response.status} - ${errText}`);
+                    }
+                } catch (err) {
+                    console.error(`❌ Erro ao exportar gênero "${gen.nome}": ${err.message}`);
+                }
+            }
+
+            return { success: true, exportados };
+        } catch (error) {
+            console.error('Erro em exportarGeneros:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    async exportarAutores() {
+        try {
+            // Buscar autores criados localmente (sem remote_id, pendentes de sync)
+            const autores = db.prepare(`
+                SELECT * FROM autores
+                WHERE sync_status = 0 AND remote_id IS NULL AND excluido_em IS NULL
+            `).all();
+
+            let exportados = 0;
+
+            for (const autor of autores) {
+                const payload = {
+                    nome_autor: autor.nome,
+                    biografia: autor.biografia || null
+                };
+
+                try {
+                    const url = `${SyncConfig.API_BASE_URL.replace(/\/$/, '')}${SyncConfig.ENDPOINTS.autores}`;
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'User-Agent': 'SeboAlfarrabioPDV/1.0'
+                        },
+                        body: JSON.stringify(payload),
+                        signal: AbortSignal.timeout(SyncConfig.REQUEST_TIMEOUT)
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        const remoteId = result.id || result.id_autor || null;
+                        if (remoteId) {
+                            db.prepare('UPDATE autores SET remote_id = ?, sync_status = 1, atualizado_em = CURRENT_TIMESTAMP WHERE id = ?')
+                                .run(remoteId, autor.id);
+                        } else {
+                            db.prepare('UPDATE autores SET sync_status = 1, atualizado_em = CURRENT_TIMESTAMP WHERE id = ?')
+                                .run(autor.id);
+                        }
+                        exportados++;
+                        console.log(`✅ Autor exportado: ${autor.nome} (remote_id: ${remoteId})`);
+                    } else {
+                        const errText = await response.text();
+                        console.warn(`⚠️ Falha ao exportar autor "${autor.nome}": ${response.status} - ${errText}`);
+                    }
+                } catch (err) {
+                    console.error(`❌ Erro ao exportar autor "${autor.nome}": ${err.message}`);
+                }
+            }
+
+            return { success: true, exportados };
+        } catch (error) {
+            console.error('Erro em exportarAutores:', error);
             return { success: false, error: error.message };
         }
     }
@@ -490,7 +662,10 @@ class SyncService {
             resultados.itens = await this.importarItens();
             resultados.avaliacoes = await this.importarAvaliacoes();
 
-            // Exportar dados locais
+            // Exportar dados locais (ordem importa: categorias antes de gêneros)
+            resultados.exportCategorias = await this.exportarCategorias();
+            resultados.exportGeneros = await this.exportarGeneros();
+            resultados.exportAutores = await this.exportarAutores();
             resultados.vendas = await this.exportarVendas();
             resultados.exportItens = await this.exportarItens();
 
