@@ -376,6 +376,11 @@ ipcMain.handle('sync:exportarVendas', async () => {
   return SyncService.exportarVendas();
 });
 
+ipcMain.handle('sync:exportarItens', async () => {
+  const SyncService = (await import('./Main_back/Services/SyncService.js')).default;
+  return SyncService.exportarItens();
+});
+
 ipcMain.handle('sync:sincronizarTudo', async () => {
   const SyncService = (await import('./Main_back/Services/SyncService.js')).default;
   return SyncService.sincronizarTudo();
@@ -400,4 +405,19 @@ ipcMain.handle('sync:estatisticas', () => {
     itens: itens?.count || 0,
     vendasPendentes: vendasPendentes?.count || 0
   };
+});
+
+ipcMain.handle('sync:logs', async (event, limite) => {
+  const SyncService = (await import('./Main_back/Services/SyncService.js')).default;
+  return SyncService.getSyncLogs(limite || 50);
+});
+
+ipcMain.handle('sync:filaStatus', async () => {
+  const SyncService = (await import('./Main_back/Services/SyncService.js')).default;
+  return SyncService.getFilaStatus();
+});
+
+ipcMain.handle('sync:processarFila', async () => {
+  const SyncService = (await import('./Main_back/Services/SyncService.js')).default;
+  return SyncService.processarFila();
 });

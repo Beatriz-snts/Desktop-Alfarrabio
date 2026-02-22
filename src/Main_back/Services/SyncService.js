@@ -14,6 +14,114 @@ class SyncService {
         this.syncTimer = null;
     }
 
+    // ==================== LOGGING ====================
+
+    registrarLog(tipo, entidade, registros, status = 'sucesso', mensagem = null) {
+        try {
+            db.prepare(`
+                INSERT INTO sync_log (tipo, entidade, registros, status, mensagem)
+                VALUES (?, ?, ?, ?, ?)
+            `).run(tipo, entidade, registros, status, mensagem);
+        } catch (e) {
+            console.error('Erro ao registrar log de sync:', e.message);
+        }
+    }
+
+    getSyncLogs(limite = 50) {
+        try {
+            return db.prepare(
+                'SELECT * FROM sync_log ORDER BY criado_em DESC LIMIT ?'
+            ).all(limite);
+        } catch (e) {
+            return [];
+        }
+    }
+
+    // ==================== FILA OFFLINE ====================
+
+    enfileirar(operacao, entidade, payload) {
+        try {
+            db.prepare(`
+                INSERT INTO sync_queue (operacao, entidade, payload)
+                VALUES (?, ?, ?)
+            `).run(operacao, entidade, JSON.stringify(payload));
+            console.log(`📥 Operação enfileirada: ${operacao} ${entidade}`);
+        } catch (e) {
+            console.error('Erro ao enfileirar operação:', e.message);
+        }
+    }
+
+    getFilaStatus() {
+        try {
+            const pendentes = db.prepare(
+                "SELECT COUNT(*) as total FROM sync_queue WHERE status = 'pendente'"
+            ).get();
+            return { pendentes: pendentes?.total || 0 };
+        } catch (e) {
+            return { pendentes: 0 };
+        }
+    }
+
+    async processarFila() {
+        const itens = db.prepare(
+            "SELECT * FROM sync_queue WHERE status = 'pendente' ORDER BY criado_em ASC LIMIT 50"
+        ).all();
+
+        let processados = 0;
+        let falhas = 0;
+
+        for (const item of itens) {
+            try {
+                const payload = JSON.parse(item.payload);
+                let endpoint = '';
+
+                switch (item.entidade) {
+                    case 'vendas': endpoint = SyncConfig.ENDPOINTS.vendas_sync; break;
+                    case 'categorias': endpoint = SyncConfig.ENDPOINTS.categorias_sync; break;
+                    case 'generos': endpoint = SyncConfig.ENDPOINTS.generos_sync; break;
+                    case 'autores': endpoint = SyncConfig.ENDPOINTS.autores_sync; break;
+                    case 'itens':
+                        endpoint = payload.id_item ? SyncConfig.ENDPOINTS.item_atualizar : SyncConfig.ENDPOINTS.item_salvar;
+                        break;
+                    default: continue;
+                }
+
+                const response = await fetch(`${SyncConfig.API_BASE_URL}${endpoint}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'User-Agent': 'SeboAlfarrabioPDV/1.0',
+                        'Authorization': `Bearer ${SyncConfig.API_KEY}`
+                    },
+                    body: JSON.stringify(payload),
+                    signal: AbortSignal.timeout(SyncConfig.REQUEST_TIMEOUT)
+                });
+
+                if (response.ok) {
+                    db.prepare(
+                        "UPDATE sync_queue SET status = 'processado', processado_em = CURRENT_TIMESTAMP WHERE id = ?"
+                    ).run(item.id);
+                    processados++;
+                } else {
+                    db.prepare(
+                        "UPDATE sync_queue SET tentativas = tentativas + 1 WHERE id = ?"
+                    ).run(item.id);
+                    falhas++;
+                }
+            } catch (e) {
+                db.prepare(
+                    "UPDATE sync_queue SET tentativas = tentativas + 1 WHERE id = ?"
+                ).run(item.id);
+                falhas++;
+            }
+        }
+
+        this.registrarLog('fila', 'queue', processados, falhas > 0 ? 'parcial' : 'sucesso',
+            `Processados: ${processados}, Falhas: ${falhas}`);
+
+        return { processados, falhas, restantes: itens.length - processados };
+    }
+
     // ==================== MÉTODOS DE CONEXÃO ====================
 
     async testarConexao() {
@@ -22,7 +130,8 @@ class SyncService {
                 method: 'GET',
                 headers: {
                     'Accept': 'application/json',
-                    'User-Agent': 'SeboAlfarrabioPDV/1.0'
+                    'User-Agent': 'SeboAlfarrabioPDV/1.0',
+                    'Authorization': `Bearer ${SyncConfig.API_KEY}`
                 },
                 signal: AbortSignal.timeout(SyncConfig.REQUEST_TIMEOUT)
             });
@@ -45,7 +154,8 @@ class SyncService {
             const response = await fetch(`${SyncConfig.API_BASE_URL}${SyncConfig.ENDPOINTS.categorias}`, {
                 headers: {
                     'User-Agent': 'SeboAlfarrabioPDV/1.0',
-                    'Accept': 'application/json'
+                    'Accept': 'application/json',
+                    'Authorization': `Bearer ${SyncConfig.API_KEY}`
                 }
             });
             const result = await response.json();
@@ -78,7 +188,8 @@ class SyncService {
             const response = await fetch(`${SyncConfig.API_BASE_URL}${SyncConfig.ENDPOINTS.generos}`, {
                 headers: {
                     'User-Agent': 'SeboAlfarrabioPDV/1.0',
-                    'Accept': 'application/json'
+                    'Accept': 'application/json',
+                    'Authorization': `Bearer ${SyncConfig.API_KEY}`
                 }
             });
             const result = await response.json();
@@ -107,7 +218,8 @@ class SyncService {
             const response = await fetch(`${SyncConfig.API_BASE_URL}${SyncConfig.ENDPOINTS.avaliacoes}`, {
                 headers: {
                     'User-Agent': 'SeboAlfarrabioPDV/1.0',
-                    'Accept': 'application/json'
+                    'Accept': 'application/json',
+                    'Authorization': `Bearer ${SyncConfig.API_KEY}`
                 }
             });
             const result = await response.json();
@@ -146,7 +258,8 @@ class SyncService {
             const response = await fetch(`${SyncConfig.API_BASE_URL}${SyncConfig.ENDPOINTS.autores}`, {
                 headers: {
                     'User-Agent': 'SeboAlfarrabioPDV/1.0',
-                    'Accept': 'application/json'
+                    'Accept': 'application/json',
+                    'Authorization': `Bearer ${SyncConfig.API_KEY}`
                 }
             });
             const result = await response.json();
@@ -187,7 +300,8 @@ class SyncService {
                 const response = await fetch(`${SyncConfig.API_BASE_URL}${SyncConfig.ENDPOINTS.itens}?pagina=${pagina}&por_pagina=50`, {
                     headers: {
                         'User-Agent': 'SeboAlfarrabioPDV/1.0',
-                        'Accept': 'application/json'
+                        'Accept': 'application/json',
+                        'Authorization': `Bearer ${SyncConfig.API_KEY}`
                     }
                 });
                 const result = await response.json();
@@ -312,7 +426,8 @@ class SyncService {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'User-Agent': 'SeboAlfarrabioPDV/1.0'
+                        'User-Agent': 'SeboAlfarrabioPDV/1.0',
+                        'Authorization': `Bearer ${SyncConfig.API_KEY}`
                     },
                     body: JSON.stringify(payload)
                 });
@@ -335,80 +450,110 @@ class SyncService {
             // Buscar itens modificados localmente
             const itens = db.prepare('SELECT * FROM itens WHERE sync_status = 0').all();
             let exportados = 0;
+            let falhas = 0;
+
+            if (itens.length > 0) {
+                console.log(`🚀 Iniciando exportação de ${itens.length} itens...`);
+                await this.registrarLog('export', 'itens', `Detectados ${itens.length} itens modificados para envio.`);
+            }
 
             for (const item of itens) {
-                // Montar payload conforme esperado pelo PublicApiController do backend
-                const payload = {
-                    id_item: item.remote_id || null,
-                    titulo_item: item.nome,
-                    preco_item: item.preco,
-                    descricao: item.descricao,
-                    isbn: item.isbn,
-                    editora_gravadora: item.editora,
-                    estoque: item.estoque,
-                    id_categoria: item.categoria_id,
-                    id_genero: item.genero_id,
-                    autores_ids: item.autor_ids ? JSON.parse(item.autor_ids) : []
-                };
+                try {
+                    // Montar payload conforme esperado pelo PublicApiController do backend
+                    const payload = {
+                        id_item: item.remote_id || null,
+                        titulo_item: item.nome,
+                        preco_item: item.preco,
+                        descricao: item.descricao,
+                        isbn: item.isbn,
+                        editora_gravadora: item.editora,
+                        estoque: item.estoque,
+                        id_categoria: item.categoria_id,
+                        id_genero: item.genero_id,
+                        autores_ids: item.autor_ids ? JSON.parse(item.autor_ids) : []
+                    };
 
-                // Adicionar imagem
-                if (item.imagem_path) {
-                    if (item.imagem_path.startsWith('data:image/')) {
-                        payload.imagem_base64 = item.imagem_path;
-                    } else if (item.imagem_path.startsWith('media://')) {
+                    // Adicionar imagem
+                    if (item.imagem_path) {
                         try {
-                            let localPath = item.imagem_path.replace(/^media:\/\/+/i, '');
-                            // Normalizar caminhos de volta (remover barra extra se necessário)
-                            if (localPath.startsWith('/') && localPath.match(/^\/[a-zA-Z]:/)) {
-                                localPath = localPath.substring(1);
-                            }
-                            localPath = path.resolve(localPath);
+                            if (item.imagem_path.startsWith('data:image/')) {
+                                payload.imagem_base64 = item.imagem_path;
+                                console.log(`📸 Item ${item.nome}: Usando imagem base64 já existente.`);
+                            } else if (item.imagem_path.startsWith('media://')) {
+                                let localPath = item.imagem_path.replace(/^media:\/\/+/i, '');
+                                // Normalizar caminhos de volta (remover barra extra se necessário)
+                                if (localPath.startsWith('/') && localPath.match(/^\/[a-zA-Z]:/)) {
+                                    localPath = localPath.substring(1);
+                                }
+                                localPath = path.resolve(localPath);
 
-                            if (typeof localPath === 'string' && localPath && fs.existsSync(localPath)) {
-                                const fileBuffer = fs.readFileSync(localPath);
-                                const base64Image = fileBuffer.toString('base64');
-                                const ext = path.extname(localPath).toLowerCase().replace('.', '') || 'jpg';
-                                const mime = ext === 'png' ? 'png' : (ext === 'webp' ? 'webp' : 'jpeg');
-                                payload.imagem_base64 = `data:image/${mime};base64,${base64Image}`;
+                                if (fs.existsSync(localPath)) {
+                                    const fileBuffer = fs.readFileSync(localPath);
+                                    const base64Image = fileBuffer.toString('base64');
+                                    const ext = path.extname(localPath).toLowerCase().replace('.', '') || 'jpg';
+                                    const mime = ext === 'png' ? 'png' : (ext === 'webp' ? 'webp' : 'jpeg');
+                                    payload.imagem_base64 = `data:image/${mime};base64,${base64Image}`;
+                                    console.log(`📸 Item ${item.nome}: Imagem convertida (${(fileBuffer.length / 1024).toFixed(1)} KB)`);
+                                } else {
+                                    console.warn(`⚠️ Item ${item.nome}: Arquivo não encontrado em ${localPath}`);
+                                    await this.registrarLog('export', 'itens', `Arquivo de imagem não encontrado para o item: ${item.nome}`, 'warning');
+                                }
                             }
-                        } catch (err) {
-                            console.error(`Erro ao converter imagem do item ${item.uuid}:`, err.message);
+                        } catch (imgErr) {
+                            console.error(`❌ Erro ao processar imagem do item ${item.nome}:`, imgErr.message);
+                            await this.registrarLog('export', 'itens', `Erro na imagem do item ${item.nome}: ${imgErr.message}`, 'error');
                         }
                     }
-                }
 
-<<<<<<< HEAD
-                const url = `${SyncConfig.API_BASE_URL.replace(/\/$/, '')}${SyncConfig.ENDPOINTS.itens}`;
-                const response = await fetch(url, {
-=======
-                // Escolher endpoint: se tem remote_id é atualização, senão é novo
-                const endpoint = item.remote_id ? SyncConfig.ENDPOINTS.item_atualizar : SyncConfig.ENDPOINTS.item_salvar;
+                    // Escolher endpoint: se tem remote_id é atualização, senão é novo
+                    const endpoint = item.remote_id ? SyncConfig.ENDPOINTS.item_atualizar : SyncConfig.ENDPOINTS.item_salvar;
+                    const acao = item.remote_id ? 'Atualizando' : 'Cadastrando';
 
-                const response = await fetch(`${SyncConfig.API_BASE_URL}${endpoint}`, {
->>>>>>> e78b913e2a0e9cda60304d112d90d4a32e110f88
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'User-Agent': 'SeboAlfarrabioPDV/1.0'
-                    },
-                    body: JSON.stringify(payload)
-                });
+                    console.log(`📤 ${acao} item: ${item.nome}...`);
 
-                if (response.ok) {
-                    const result = await response.json();
-                    if (result.status === 'success') {
-                        const remoteId = result.id_item || result.id;
-                        if (!item.remote_id && remoteId) {
-                            db.prepare('UPDATE itens SET remote_id = ?, sync_status = 1 WHERE uuid = ?').run(remoteId, item.uuid);
+                    const response = await fetch(`${SyncConfig.API_BASE_URL}${endpoint}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'User-Agent': 'SeboAlfarrabioPDV/1.0',
+                            'Authorization': `Bearer ${SyncConfig.API_KEY}`
+                        },
+                        body: JSON.stringify(payload),
+                        signal: AbortSignal.timeout(SyncConfig.REQUEST_TIMEOUT)
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.status === 'success') {
+                            const remoteId = result.id_item || result.id;
+                            if (!item.remote_id && remoteId) {
+                                db.prepare('UPDATE itens SET remote_id = ?, sync_status = 1, atualizado_em = CURRENT_TIMESTAMP WHERE uuid = ?').run(remoteId, item.uuid);
+                            } else {
+                                db.prepare('UPDATE itens SET sync_status = 1, atualizado_em = CURRENT_TIMESTAMP WHERE uuid = ?').run(item.uuid);
+                            }
+                            exportados++;
+                            console.log(`✅ Item sincronizado: ${item.nome} (ID Remoto: ${remoteId})`);
                         } else {
-                            db.prepare('UPDATE itens SET sync_status = 1 WHERE uuid = ?').run(item.uuid);
+                            console.warn(`⚠️ Falha no sync do item ${item.nome}: ${result.message}`);
+                            falhas++;
                         }
-                        exportados++;
+                    } else {
+                        const errText = await response.text();
+                        console.error(`❌ Erro HTTP ${response.status} ao sincronizar ${item.nome}: ${errText}`);
+                        await this.registrarLog('export', 'itens', `Erro HTTP ${response.status} no item ${item.nome}`, 'error');
+                        falhas++;
                     }
+                } catch (itemErr) {
+                    console.error(`❌ Erro fatal ao sincronizar item ${item.nome}:`, itemErr.message);
+                    falhas++;
                 }
             }
 
-            return { success: true, exportados };
+            if (exportados > 0 || falhas > 0) {
+                await this.registrarLog('export', 'itens', `Sincronização de itens finalizada: ${exportados} sucessos, ${falhas} falhas.`);
+            }
+
+            return { success: true, exportados, falhas };
         } catch (error) {
             console.error('Erro ao exportar itens:', error);
             return { success: false, error: error.message };
@@ -432,12 +577,13 @@ class SyncService {
                 };
 
                 try {
-                    const url = `${SyncConfig.API_BASE_URL.replace(/\/$/, '')}${SyncConfig.ENDPOINTS.categorias}`;
+                    const url = `${SyncConfig.API_BASE_URL}${SyncConfig.ENDPOINTS.categorias_sync}`;
                     const response = await fetch(url, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'User-Agent': 'SeboAlfarrabioPDV/1.0'
+                            'User-Agent': 'SeboAlfarrabioPDV/1.0',
+                            'Authorization': `Bearer ${SyncConfig.API_KEY}`
                         },
                         body: JSON.stringify(payload),
                         signal: AbortSignal.timeout(SyncConfig.REQUEST_TIMEOUT)
@@ -490,12 +636,13 @@ class SyncService {
                 };
 
                 try {
-                    const url = `${SyncConfig.API_BASE_URL.replace(/\/$/, '')}${SyncConfig.ENDPOINTS.generos}`;
+                    const url = `${SyncConfig.API_BASE_URL}${SyncConfig.ENDPOINTS.generos_sync}`;
                     const response = await fetch(url, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'User-Agent': 'SeboAlfarrabioPDV/1.0'
+                            'User-Agent': 'SeboAlfarrabioPDV/1.0',
+                            'Authorization': `Bearer ${SyncConfig.API_KEY}`
                         },
                         body: JSON.stringify(payload),
                         signal: AbortSignal.timeout(SyncConfig.REQUEST_TIMEOUT)
@@ -546,12 +693,13 @@ class SyncService {
                 };
 
                 try {
-                    const url = `${SyncConfig.API_BASE_URL.replace(/\/$/, '')}${SyncConfig.ENDPOINTS.autores}`;
+                    const url = `${SyncConfig.API_BASE_URL}${SyncConfig.ENDPOINTS.autores_sync}`;
                     const response = await fetch(url, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'User-Agent': 'SeboAlfarrabioPDV/1.0'
+                            'User-Agent': 'SeboAlfarrabioPDV/1.0',
+                            'Authorization': `Bearer ${SyncConfig.API_KEY}`
                         },
                         body: JSON.stringify(payload),
                         signal: AbortSignal.timeout(SyncConfig.REQUEST_TIMEOUT)
@@ -617,7 +765,7 @@ class SyncService {
     async baixarImagem(relativeUrl, fileName) {
         try {
             // URL Absoluta da imagem (ajustar conforme BASE_URL ou servidor de mídia)
-            const baseUrl = SyncConfig.API_BASE_URL.replace('/index.php/api', '');
+            const baseUrl = SyncConfig.API_BASE_URL.replace(/\/api$/, '');
             const url = `${baseUrl}${relativeUrl}`;
 
             const uploadDir = path.join(app.getPath('userData'), 'uploads', 'itens');
@@ -634,7 +782,8 @@ class SyncService {
 
             const response = await fetch(url, {
                 headers: {
-                    'User-Agent': 'SeboAlfarrabioPDV/1.0'
+                    'User-Agent': 'SeboAlfarrabioPDV/1.0',
+                    'Authorization': `Bearer ${SyncConfig.API_KEY}`
                 }
             });
             if (!response.ok) throw new Error(`Falha ao baixar imagem: ${response.status}`);
@@ -646,6 +795,60 @@ class SyncService {
             return { success: true, path: localPath };
         } catch (error) {
             console.error(`Erro ao baixar imagem ${fileName}:`, error.message);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // ==================== IMPORTAÇÃO DE VENDAS ====================
+
+    async importarVendas() {
+        try {
+            // Buscar timestamp do último sync de vendas
+            const ultimoSyncVendas = db.prepare(
+                "SELECT valor FROM configuracoes WHERE chave = 'ultimo_sync_vendas'"
+            ).get();
+            const desde = ultimoSyncVendas?.valor || null;
+
+            let url = `${SyncConfig.API_BASE_URL}${SyncConfig.ENDPOINTS.vendas}`;
+            if (desde) url += `?desde=${encodeURIComponent(desde)}`;
+
+            const response = await fetch(url, {
+                headers: {
+                    'User-Agent': 'SeboAlfarrabioPDV/1.0',
+                    'Accept': 'application/json',
+                    'Authorization': `Bearer ${SyncConfig.API_KEY}`
+                },
+                signal: AbortSignal.timeout(SyncConfig.REQUEST_TIMEOUT)
+            });
+            const result = await response.json();
+            const vendas = result.data || [];
+
+            let importados = 0;
+
+            for (const v of vendas) {
+                // Verificar se já existe localmente
+                const existente = db.prepare('SELECT id FROM vendas WHERE uuid = ?').get(v.uuid_desktop);
+                if (existente) continue;
+
+                // Inserir venda
+                const uuid = v.uuid_desktop || this.gerarUUID();
+                db.prepare(`
+                    INSERT INTO vendas (uuid, usuario_id, data_venda, total, forma_pagamento, status, sync_status, criado_em)
+                    VALUES (?, ?, ?, ?, ?, 'concluida', 1, ?)
+                `).run(uuid, v.id_usuario || 1, v.data_venda, v.valor_total, v.forma_pagamento, v.criado_em);
+                importados++;
+            }
+
+            // Atualizar timestamp incremental
+            db.prepare(`
+                INSERT OR REPLACE INTO configuracoes (chave, valor, atualizado_em)
+                VALUES ('ultimo_sync_vendas', ?, CURRENT_TIMESTAMP)
+            `).run(new Date().toISOString());
+
+            this.registrarLog('import', 'vendas', importados);
+            return { success: true, importados };
+        } catch (error) {
+            this.registrarLog('import', 'vendas', 0, 'erro', error.message);
             return { success: false, error: error.message };
         }
     }
@@ -665,22 +868,54 @@ class SyncService {
             const conexao = await this.testarConexao();
             if (!conexao.success) {
                 this.emAndamento = false;
+                this.registrarLog('sync', 'conexao', 0, 'erro', conexao.message);
                 return { success: false, message: conexao.message };
             }
 
+            // Processar fila offline primeiro
+            const filaResult = await this.processarFila();
+            resultados.fila = filaResult;
+
             // Importar na ordem correta (dependências primeiro)
             resultados.categorias = await this.importarCategorias();
+            this.registrarLog('import', 'categorias', resultados.categorias.importados || 0,
+                resultados.categorias.success ? 'sucesso' : 'erro', resultados.categorias.error);
+
             resultados.generos = await this.importarGeneros();
+            this.registrarLog('import', 'generos', resultados.generos.importados || 0,
+                resultados.generos.success ? 'sucesso' : 'erro', resultados.generos.error);
+
             resultados.autores = await this.importarAutores();
+            this.registrarLog('import', 'autores', resultados.autores.importados || 0,
+                resultados.autores.success ? 'sucesso' : 'erro', resultados.autores.error);
+
             resultados.itens = await this.importarItens();
+            this.registrarLog('import', 'itens', resultados.itens.importados || 0,
+                resultados.itens.success ? 'sucesso' : 'erro', resultados.itens.error);
+
             resultados.avaliacoes = await this.importarAvaliacoes();
+            resultados.importVendas = await this.importarVendas();
 
             // Exportar dados locais (ordem importa: categorias antes de gêneros)
             resultados.exportCategorias = await this.exportarCategorias();
+            this.registrarLog('export', 'categorias', resultados.exportCategorias.exportados || 0,
+                resultados.exportCategorias.success ? 'sucesso' : 'erro', resultados.exportCategorias.error);
+
             resultados.exportGeneros = await this.exportarGeneros();
+            this.registrarLog('export', 'generos', resultados.exportGeneros.exportados || 0,
+                resultados.exportGeneros.success ? 'sucesso' : 'erro', resultados.exportGeneros.error);
+
             resultados.exportAutores = await this.exportarAutores();
+            this.registrarLog('export', 'autores', resultados.exportAutores.exportados || 0,
+                resultados.exportAutores.success ? 'sucesso' : 'erro', resultados.exportAutores.error);
+
             resultados.vendas = await this.exportarVendas();
+            this.registrarLog('export', 'vendas', resultados.vendas.exportados || 0,
+                resultados.vendas.success ? 'sucesso' : 'erro', resultados.vendas.error);
+
             resultados.exportItens = await this.exportarItens();
+            this.registrarLog('export', 'itens', resultados.exportItens.exportados || 0,
+                resultados.exportItens.success ? 'sucesso' : 'erro', resultados.exportItens.error);
 
             // Atualizar timestamp
             this.ultimoSync = new Date().toISOString();
@@ -699,6 +934,7 @@ class SyncService {
             };
         } catch (error) {
             this.emAndamento = false;
+            this.registrarLog('sync', 'geral', 0, 'erro', error.message);
             return { success: false, error: error.message };
         }
     }

@@ -86,8 +86,12 @@ contextBridge.exposeInMainWorld('sync', {
     importarAutores: () => ipcRenderer.invoke('sync:importarAutores'),
     importarItens: () => ipcRenderer.invoke('sync:importarItens'),
     exportarVendas: () => ipcRenderer.invoke('sync:exportarVendas'),
+    exportarItens: () => ipcRenderer.invoke('sync:exportarItens'),
     sincronizarTudo: () => ipcRenderer.invoke('sync:sincronizarTudo'),
     status: () => ipcRenderer.invoke('sync:status'),
-    estatisticas: () => ipcRenderer.invoke('sync:estatisticas')
+    estatisticas: () => ipcRenderer.invoke('sync:estatisticas'),
+    logs: (limite) => ipcRenderer.invoke('sync:logs', limite),
+    filaStatus: () => ipcRenderer.invoke('sync:filaStatus'),
+    processarFila: () => ipcRenderer.invoke('sync:processarFila')
 });
 

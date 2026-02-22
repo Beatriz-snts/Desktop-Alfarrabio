@@ -43,14 +43,15 @@ class SyncView {
                             <div class="form-group">
                                 <label>URL Base da API:</label>
                                 <input type="text" class="form-control" id="api-url" 
-                                       value="http://localhost:8080/backend/api" 
-                                       placeholder="http://seu-servidor/api">
+                                       value="https://seboalfarrabio.com.br/backend/api" 
+                                       placeholder="https://seboalfarrabio.com.br/backend/api">
                             </div>
                         </div>
 
                         <div class="sync-actions" style="display: flex; gap: 1rem; flex-wrap: wrap;">
                             <button class="btn btn-outline" id="btn-testar">🔌 Testar Conexão</button>
                             <button class="btn btn-primary" id="btn-importar">📥 Importar Dados</button>
+                            <button class="btn btn-outline" id="btn-exportar-itens">📤 Exportar Itens</button>
                             <button class="btn btn-secondary" id="btn-exportar">📤 Exportar Vendas</button>
                             <button class="btn btn-success" id="btn-sync-completo">🔄 Sync Completo</button>
                         </div>
@@ -139,6 +140,29 @@ class SyncView {
             }
 
             this.setLoading(false);
+        });
+
+        // Exportar itens
+        document.getElementById('btn-exportar-itens').addEventListener('click', async () => {
+            this.log('Exportando itens pendentes...');
+            this.setLoading(true);
+
+            try {
+                const result = await window.sync.exportarItens();
+                if (result.success) {
+                    this.log(`✅ ${result.exportados} itens sincronizados`, 'success');
+                    if (result.falhas > 0) {
+                        this.log(`⚠️ ${result.falhas} itens falharam (verifique o console)`, 'warning');
+                    }
+                } else {
+                    this.log('❌ ' + result.error, 'error');
+                }
+            } catch (error) {
+                this.log('❌ Erro: ' + error.message, 'error');
+            }
+
+            this.setLoading(false);
+            this.carregarEstatisticas();
         });
 
         // Exportar vendas

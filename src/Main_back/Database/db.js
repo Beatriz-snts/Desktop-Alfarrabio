@@ -177,6 +177,33 @@ export function initDatabase() {
     );
   `);
 
+  // Log de sincronizações
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS sync_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tipo TEXT NOT NULL,
+      entidade TEXT NOT NULL,
+      registros INTEGER DEFAULT 0,
+      status TEXT DEFAULT 'sucesso',
+      mensagem TEXT,
+      criado_em DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  // Fila de operações pendentes (offline queue)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS sync_queue (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      operacao TEXT NOT NULL,
+      entidade TEXT NOT NULL,
+      payload TEXT NOT NULL,
+      tentativas INTEGER DEFAULT 0,
+      status TEXT DEFAULT 'pendente',
+      criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+      processado_em DATETIME
+    );
+  `);
+
   // Migrations: Adicionar colunas remote_id se não existirem (para bancos existentes)
   const columns = [
     { table: 'categorias', column: 'remote_id', type: 'INTEGER' },

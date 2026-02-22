@@ -7,6 +7,9 @@ export const SyncConfig = {
     // API_BASE_URL: 'http://localhost:2000/backend/index.php/api',
     API_BASE_URL: 'https://seboalfarrabio.com.br/backend/api',
 
+    // Chave de Autenticação (Bearer Token)
+    API_KEY: '9D67A537A9329E0F1E9D088A1C991F1CC728EA87D3D154B409ED3320EA940303',
+
     // Endpoints da API
     ENDPOINTS: {
         itens: '/item',
@@ -17,6 +20,11 @@ export const SyncConfig = {
         avaliacoes: '/buscarpedidos',
         autores: '/autores',
         vendas: '/vendas',
+        // Sync-specific endpoints (Push Desktop → Web)
+        vendas_sync: '/vendas/sync',
+        categorias_sync: '/categorias/sync',
+        generos_sync: '/generos/sync',
+        autores_sync: '/autores/sync',
     },
 
     // Intervalo de sync automático (em ms, 10 minutos = 600000)
